@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clinical Trials Intelligence</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+    background:linear-gradient(135deg,#0f0f0f 0%,#1a1a2e 100%);color:#e0e0e0;line-height:1.6;min-height:100vh}
+
+  .hero{min-height:70vh;display:flex;flex-direction:column;justify-content:center;align-items:center;
+    padding:2rem;text-align:center;background:linear-gradient(180deg,rgba(15,15,15,1),rgba(26,26,46,.8))}
+  .hero h1{font-size:clamp(2rem,5vw,3.5rem);font-weight:700;margin-bottom:.5rem;
+    background:linear-gradient(90deg,#00d4ff,#7c3aed);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .hero p{font-size:1.15rem;color:#999;margin-bottom:2rem;max-width:60ch}
+  .search-box{width:100%;max-width:760px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+    border-radius:1rem;padding:1.2rem;backdrop-filter:blur(10px);box-shadow:0 8px 32px rgba(0,0,0,.3)}
+  .search-box input{width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);border-radius:.5rem;
+    padding:1rem;color:#e0e0e0;font-size:1rem;outline:none;transition:.3s}
+  .search-box input:focus{border-color:rgba(0,212,255,.5);box-shadow:inset 0 0 1rem rgba(0,212,255,.1)}
+  .keyrow{display:flex;gap:.6rem;margin-top:.8rem;flex-wrap:wrap}
+  .keyrow input,.keyrow select{flex:1;min-width:150px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);
+    border-radius:.5rem;padding:.6rem;color:#e0e0e0;font-size:.9rem}
+  .keyrow select option{background:#1a1a2e}
+  .keyhint{font-size:.78rem;color:#888;margin-top:.5rem}
+
+  .bento{display:grid;grid-template-columns:repeat(3,1fr);gap:1.4rem;padding:3rem 2rem;max-width:1200px;margin:0 auto}
+  .card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:1rem;padding:1.8rem;
+    cursor:pointer;transition:.3s;backdrop-filter:blur(10px);min-height:150px;display:flex;flex-direction:column;
+    justify-content:center;align-items:center;text-align:center;border-left:4px solid var(--c)}
+  .card:hover{transform:translateY(-8px);border-color:rgba(255,255,255,.3);box-shadow:0 16px 48px rgba(0,0,0,.4)}
+  .card .ic{font-size:2.6rem;margin-bottom:.7rem}
+  .card .lb{font-size:1.15rem;font-weight:600;color:var(--c)}
+  .card .sub{font-size:.78rem;color:#888;margin-top:.35rem}
+
+  .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(5px);
+    justify-content:center;align-items:center;z-index:1000;animation:fade .3s ease;padding:1rem}
+  .modal.active{display:flex}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  @keyframes slide{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+  .modal-content{background:rgba(26,26,46,.97);border:1px solid rgba(255,255,255,.1);border-radius:1.25rem;padding:1.8rem;
+    width:720px;max-width:96%;max-height:88vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,.5);animation:slide .3s ease;
+    border-top:4px solid var(--c)}
+  .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem}
+  .modal-head h2{font-size:1.5rem;color:var(--c)}
+  .x{background:none;border:none;color:#999;font-size:1.9rem;cursor:pointer;line-height:1}
+  .x:hover{color:#fff}
+  label{display:block;font-size:.85rem;color:#bbb;margin:.9rem 0 .35rem;font-weight:500}
+  select,input[type=text],input[type=password]{width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);
+    border-radius:.5rem;padding:.7rem;color:#e0e0e0;font-size:1rem}
+  select option{background:#1a1a2e}
+  input[type=range]{width:100%;accent-color:var(--c)}
+  .btn{background:linear-gradient(90deg,#00d4ff,#7c3aed);border:none;color:#000;padding:.75rem 2rem;border-radius:.5rem;
+    font-weight:700;cursor:pointer;transition:.3s;font-size:1rem;margin-top:1.2rem;width:100%}
+  .btn:hover{transform:scale(1.02);box-shadow:0 8px 24px rgba(0,212,255,.3)}
+  .btn:active{transform:scale(.99)}
+  .backbtn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#e0e0e0;padding:.5rem 1.1rem;
+    border-radius:.5rem;cursor:pointer;font-size:.85rem;margin-top:.8rem}
+
+  .results{margin-top:.5rem;animation:fade .3s ease}
+  .rcard{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:.75rem;padding:1.2rem;margin-bottom:1rem}
+  .rcard h3{color:var(--c);margin-bottom:.5rem;font-size:1.05rem}
+  .chips{display:flex;flex-wrap:wrap;gap:.5rem;margin:.4rem 0}
+  .chip{font-size:.8rem;padding:.35rem .7rem;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.25)}
+  .chip b{color:#fff}
+  table{width:100%;border-collapse:collapse;font-size:.85rem;margin-top:.4rem;display:block;overflow-x:auto}
+  th,td{text-align:left;padding:.4rem .7rem .4rem 0;border-bottom:1px solid rgba(255,255,255,.06);white-space:nowrap}
+  th{color:#9aa4bf;font-weight:600}
+  ul.li{list-style:none;padding:0}ul.li li{padding:.55rem .8rem;border:1px solid rgba(255,255,255,.06);border-radius:.5rem;
+    background:rgba(0,0,0,.18);margin-bottom:.5rem}
+  .score{display:inline-grid;place-items:center;width:74px;height:74px;border-radius:50%;font-size:1.4rem;font-weight:800;
+    background:conic-gradient(var(--sc) calc(var(--p)*1%),rgba(255,255,255,.08) 0);position:relative}
+  .score::before{content:"";position:absolute;inset:8px;border-radius:50%;background:#151a2e}
+  .score span{position:relative}
+  details{margin-top:.8rem}summary{cursor:pointer;color:#888;font-size:.82rem}
+  pre{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.78rem;background:rgba(0,0,0,.35);
+    border:1px solid rgba(255,255,255,.06);border-radius:.6rem;padding:.9rem;overflow:auto;max-height:320px;color:#cfe0ff;margin-top:.5rem}
+  .spin{display:inline-block;width:18px;height:18px;border:3px solid rgba(255,255,255,.15);border-top-color:#00d4ff;
+    border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .err{color:#ffb3b3}
+
+  footer{text-align:center;padding:2rem;color:#666;border-top:1px solid rgba(255,255,255,.05);font-size:.85rem}
+  footer a{color:#00d4ff;text-decoration:none}footer a:hover{text-decoration:underline}
+  @media(max-width:768px){.bento{grid-template-columns:1fr}.hero{min-height:auto;padding-top:3rem}}
+</style>
+</head>
+<body>
+
+<section class="hero">
+  <h1>🔬 Clinical Trials Intelligence</h1>
+  <p>Search, analyze, compare and monitor clinical trials across ClinicalTrials.gov, PubMed, OpenAlex &amp; the FAERS safety database — 30+ commands in six groups.</p>
+  <div class="search-box">
+    <input id="heroQuery" type="text" placeholder="Disease, drug, or NCT ID — e.g. 'diabetes' or 'NCT07104383'">
+    <div class="keyrow">
+      <input id="llmKey" type="password" placeholder="LLM API key (optional, BYOK)" autocomplete="off">
+      <select id="llmProvider">
+        <option value="anthropic">Anthropic</option><option value="openai">OpenAI</option>
+        <option value="gemini">Gemini</option><option value="groq">Groq</option><option value="mistral">Mistral</option>
+      </select>
+    </div>
+    <div class="keyhint">Your key is stored only in this browser (localStorage) and sent per-request via the <code>X-LLM-Key</code> header. Never logged or persisted server-side.</div>
+  </div>
+</section>
+
+<section class="bento" id="bento"></section>
+
+<div class="modal" id="modal">
+  <div class="modal-content" id="modalContent"></div>
+</div>
+
+<footer>
+  Clinical Trials CLI × 6-group API × BYOK · <a href="https://github.com/laci141/clinical-trials-web" target="_blank" rel="noopener">GitHub</a>
+  · Powered by <a href="https://github.com/mvanhorn/printing-press-library" target="_blank" rel="noopener">Printing Press Library</a>
+</footer>
+
+<script>
+"use strict";
+const API_BASE = ""; // same-origin (served by the Go server on :8091)
+
+// Field helpers: t=text, nct=text(NCT), limit=slider, select=dropdown
+const T=(k,label,ph)=>({k,label,ph:ph||"",type:"text"});
+const LIM=(def)=>({k:"limit",label:"Limit",type:"limit",def:def||10});
+
+// group config: color, icon, and each command's input fields (matches the
+// server's positional-arg routing verified from the CLI --help).
+const GROUPS = {
+  "search-discovery":{icon:"🔍",title:"Search & Discovery",color:"#00d4ff",cmds:{
+    search:{label:"Search trials",fields:[T("query","Query","diabetes"),LIM(10)]},
+    digest:{label:"Digest snapshot",fields:[T("query","Condition / term","covid"),LIM(10)]},
+    similar:{label:"Similar trials",fields:[T("nctid","NCT ID","NCT07104383"),LIM(10)]},
+    hotspots:{label:"Country hotspots",fields:[T("condition","Condition","melanoma")]},
+    phase3:{label:"Phase 3 trials",fields:[T("condition","Condition","alzheimer"),LIM(20)]},
+  }},
+  "trial-analysis":{icon:"⚕️",title:"Trial Analysis",color:"#2fd6a6",cmds:{
+    risk:{label:"Risk read",fields:[T("nctid","NCT ID","NCT07104383")]},
+    forecast:{label:"Completion forecast",fields:[T("nctid","NCT ID","NCT07104383")]},
+    "enrollment-check":{label:"Enrollment plausibility",fields:[T("nctid","NCT ID","NCT07104383")]},
+    evidence:{label:"Linked evidence",fields:[T("nctid","NCT ID or term","NCT07104383"),LIM(10)]},
+    safety:{label:"FDA safety signals",fields:[T("drug","Drug","semaglutide"),LIM(10)]},
+    timeline:{label:"Trial timeline",fields:[T("nctid","NCT ID","NCT07104383")]},
+  }},
+  "comparison":{icon:"⚖️",title:"Comparison",color:"#b681ff",cmds:{
+    compare:{label:"Compare two drugs",fields:[T("drug1","Drug A","aspirin"),T("drug2","Drug B","ibuprofen")]},
+    sponsors:{label:"Top sponsors",fields:[T("area","Disease area","oncology"),LIM(10)]},
+    velocity:{label:"Research velocity",fields:[T("area","Disease area","oncology")]},
+  }},
+  "recruiting-watch":{icon:"📋",title:"Recruiting & Watch",color:"#ffab4c",cmds:{
+    recruiting:{label:"Recruiting trials",fields:[T("condition","Condition","heart disease"),LIM(10)]},
+    watch:{label:"Watch a term",fields:[T("term","Term","glp-1")]},
+    tail:{label:"Tail live changes",fields:[T("resource","Resource (optional)","")]},
+  }},
+  "data-management":{icon:"💾",title:"Data Management",color:"#fbbf24",cmds:{
+    sync:{label:"Sync to local DB",fields:[T("query","Term (optional)","covid")]},
+    export:{label:"Export data",fields:[T("resource","Resource","trials"),LIM(50)]},
+    "export-fhir":{label:"Export FHIR",fields:[T("nctid","NCT ID","NCT07104383"),
+      {k:"format",label:"Format",type:"select",opts:["fhir","csv"]}]},
+    import:{label:"Import data",fields:[T("resource","Resource","trials")]},
+  }},
+  "system":{icon:"⚙️",title:"System & Info",color:"#9aa4bf",cmds:{
+    health:{label:"Source health",fields:[]},
+    doctor:{label:"CLI doctor",fields:[]},
+    analytics:{label:"Local analytics",fields:[]},
+    "agent-context":{label:"Agent context",fields:[]},
+    version:{label:"Version",fields:[]},
+    "clinicaltrials-gov-version":{label:"CT.gov API version",fields:[]},
+    api:{label:"Browse API",fields:[T("interface","Interface (optional)","")]},
+    feedback:{label:"Send feedback",fields:[T("text","Feedback text","")]},
+  }},
+};
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const isNum=n=>typeof n==="number"&&!isNaN(n);
+
+// ---- localStorage BYOK ----
+(function load(){const k=localStorage.getItem("ct_key");if(k)$("#llmKey").value=k;
+  const p=localStorage.getItem("ct_provider");if(p)$("#llmProvider").value=p;})();
+$("#llmKey").addEventListener("input",e=>localStorage.setItem("ct_key",e.target.value));
+$("#llmProvider").addEventListener("change",e=>localStorage.setItem("ct_provider",e.target.value));
+
+// ---- build bento ----
+const bento=$("#bento");
+Object.entries(GROUPS).forEach(([g,cfg])=>{
+  const n=Object.keys(cfg.cmds).length;
+  const el=document.createElement("div");
+  el.className="card";el.style.setProperty("--c",cfg.color);
+  el.innerHTML=`<div class="ic">${cfg.icon}</div><div class="lb">${esc(cfg.title)}</div><div class="sub">${n} commands</div>`;
+  el.addEventListener("click",()=>openGroup(g));
+  bento.appendChild(el);
+});
+
+// ---- modal ----
+const modal=$("#modal"), mc=$("#modalContent");
+modal.addEventListener("click",e=>{if(e.target===modal)closeModal();});
+function closeModal(){modal.classList.remove("active");}
+
+function openGroup(g){
+  const cfg=GROUPS[g];
+  const opts=Object.entries(cfg.cmds).map(([c,d])=>`<option value="${c}">${esc(d.label)} — ${c}</option>`).join("");
+  mc.style.setProperty("--c",cfg.color);
+  mc.innerHTML=`
+    <div class="modal-head"><h2>${cfg.icon} ${esc(cfg.title)}</h2><button class="x" onclick="__close()">&times;</button></div>
+    <label>Command</label>
+    <select id="cmdSel">${opts}</select>
+    <div id="fields"></div>
+    <button class="btn" id="runBtn">Run</button>
+    <div class="results" id="res"></div>`;
+  const sel=$("#cmdSel");
+  sel.addEventListener("change",()=>renderFields(g,sel.value));
+  $("#runBtn").addEventListener("click",()=>run(g,sel.value));
+  renderFields(g,sel.value);
+  // prefill first text field from the hero query
+  modal.classList.add("active");
+}
+window.__close=closeModal;
+
+function renderFields(g,cmd){
+  const d=GROUPS[g].cmds[cmd], box=$("#fields");
+  const hero=$("#heroQuery").value.trim();
+  box.innerHTML=d.fields.map(f=>{
+    if(f.type==="limit") return `<label>${f.label} · <span id="lv">${f.def}</span></label>
+      <input type="range" id="f_limit" min="1" max="200" value="${f.def}" oninput="document.getElementById('lv').textContent=this.value">`;
+    if(f.type==="select") return `<label>${f.label}</label><select id="f_${f.k}">${f.opts.map(o=>`<option>${o}</option>`).join("")}</select>`;
+    const pre = (hero && ["query","nctid","condition","term","drug","area"].includes(f.k)) ? hero : "";
+    return `<label>${f.label}</label><input type="text" id="f_${f.k}" placeholder="${esc(f.ph)}" value="${esc(pre)}">`;
+  }).join("");
+  if(!d.fields.length) box.innerHTML=`<p style="color:#888;margin-top:.6rem">No inputs required.</p>`;
+}
+
+async function run(g,cmd){
+  const d=GROUPS[g].cmds[cmd];
+  const body={command:cmd};
+  for(const f of d.fields){
+    const el=document.getElementById("f_"+f.k);
+    if(!el) continue;
+    if(f.type==="limit") body.limit=parseInt(el.value)||f.def;
+    else if(el.value.trim()) body[f.k]=el.value.trim();
+  }
+  const key=$("#llmKey").value.trim();
+  if(key) body.provider=$("#llmProvider").value;
+  const res=$("#res");
+  res.innerHTML=`<div class="rcard"><span class="spin"></span> Running <b>${esc(cmd)}</b>…</div>`;
+  const headers={"Content-Type":"application/json"};
+  if(key){headers["X-LLM-Key"]=key;headers["X-LLM-Provider"]=$("#llmProvider").value;}
+  try{
+    const r=await fetch(API_BASE+"/api/"+g,{method:"POST",headers,body:JSON.stringify(body)});
+    const data=await r.json();
+    if(!r.ok){res.innerHTML=`<div class="rcard"><h3 class="err">Error</h3><p>${esc(data.error||("HTTP "+r.status))}</p><button class="backbtn" onclick="document.getElementById('res').innerHTML=''">Clear</button></div>`;return;}
+    res.innerHTML=renderResult(g,cmd,data)+`<button class="backbtn" onclick="document.getElementById('res').innerHTML=''">Clear</button>`;
+  }catch(e){res.innerHTML=`<div class="rcard"><h3 class="err">Error</h3><p>${esc(e.message)}</p></div>`;}
+}
+
+// ---- renderers: a few specific shapes + a robust generic fallback ----
+function renderResult(g,cmd,payload){
+  const r=payload.result!=null?payload.result:payload;
+  let head=`<div class="rcard" style="padding:.7rem 1rem"><div class="chips">
+     <span class="chip">group <b>${esc(payload.group||g)}</b></span>
+     <span class="chip">command <b>${esc(payload.command||cmd)}</b></span>
+     <span class="chip">source <b>${esc(payload.source||"keyless")}</b></span></div></div>`;
+  return head + renderBody(r);
+}
+
+function renderBody(r){
+  if(r==null) return `<div class="rcard"><p>No result.</p></div>`;
+  if(typeof r!=="object") return `<div class="rcard"><p>${esc(r)}</p></div>`;
+  // plain-text wrapped command output
+  if(r.output && Object.keys(r).length===1) return `<div class="rcard"><pre>${esc(r.output)}</pre></div>`;
+  // risk / forecast score card
+  if(isNum(r.score)&&r.level){
+    const pc=Math.max(0,Math.min(100,Math.round(r.score*100)));
+    const col=r.score>=0.66?"#ff6b6b":r.score>=0.33?"#ffab4c":"#2fd6a6";
+    return `<div class="rcard"><h3>${esc(r.title||r.id||"Risk")}</h3>
+      <div style="display:flex;gap:1rem;align-items:center">
+        <div class="score" style="--p:${pc};--sc:${col}"><span>${(Math.round(r.score*100)/100)}</span></div>
+        <div><div class="chips">
+          <span class="chip">level <b>${esc(r.level)}</b></span>
+          ${r.status?`<span class="chip">status <b>${esc(r.status)}</b></span>`:""}
+          ${r.sponsor?`<span class="chip">sponsor <b>${esc(r.sponsor)}</b></span>`:""}
+        </div></div></div>${factorList(r.factors)}${rawDetails(r)}</div>`;
+  }
+  // compare side-by-side
+  if(r.drug_a&&r.drug_b) return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+      ${sideCard(r.drug_a)}${sideCard(r.drug_b)}</div>`+rawDetails(r);
+  // trials/results table
+  const arr=r.results||r.trials||r.sources||null;
+  if(Array.isArray(arr)) return `<div class="rcard">${scalarChips(r)}${objTable(arr)}</div>`;
+  // generic object
+  return `<div class="rcard">${scalarChips(r)}${nestedArrays(r)}${rawDetails(r)}</div>`;
+}
+
+function sideCard(x){return `<div class="rcard"><h3>${esc(x.name||x.drug||"—")}</h3>${scalarChips(x)}</div>`;}
+function factorList(f){if(!Array.isArray(f)||!f.length)return"";
+  return `<ul class="li" style="margin-top:.6rem">`+f.map(x=>`<li>${esc(typeof x==="object"?(x.name||x.factor||JSON.stringify(x))+(x.detail?" — "+x.detail:""):x)}</li>`).join("")+`</ul>`;}
+function scalarChips(o){const c=Object.entries(o).filter(([k,v])=>v!=null&&typeof v!=="object")
+    .map(([k,v])=>`<span class="chip">${esc(k)} <b>${esc(String(v).slice(0,60))}</b></span>`).join("");
+  return c?`<div class="chips">${c}</div>`:"";}
+function objTable(arr){
+  if(!arr.length) return `<p style="color:#888">Empty.</p>`;
+  if(typeof arr[0]!=="object") return `<ul class="li">`+arr.map(x=>`<li>${esc(x)}</li>`).join("")+`</ul>`;
+  const cols=Array.from(new Set(arr.flatMap(o=>Object.keys(o)))).filter(k=>typeof (arr[0][k])!=="object").slice(0,6);
+  const rows=arr.slice(0,25).map(o=>`<tr>${cols.map(c=>`<td>${esc(String(o[c]==null?"":o[c])).slice(0,80)}</td>`).join("")}</tr>`).join("");
+  return `<table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>
+     ${arr.length>25?`<p style="color:#888;font-size:.8rem">…and ${arr.length-25} more</p>`:""}`;
+}
+function nestedArrays(o){return Object.entries(o).filter(([k,v])=>Array.isArray(v)&&v.length)
+    .map(([k,v])=>`<h3 style="margin-top:.8rem;font-size:.95rem">${esc(k.replace(/_/g," "))}</h3>${objTable(v)}`).join("");}
+function rawDetails(r){return `<details><summary>Raw JSON</summary><pre>${esc(JSON.stringify(r,null,2))}</pre></details>`;}
+</script>
+</body>
+</html>

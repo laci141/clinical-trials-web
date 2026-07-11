@@ -1,0 +1,7 @@
+# Build scratch (regenerate with vendor-cli.sh).
+cli-src/
+# Windows-built binaries — local only.
+*.exe
+bin/server*
+# The linux CLI binary IS committed (Render needs it): bin/clinical-trials-pp-cli-linux
+.DS_Store

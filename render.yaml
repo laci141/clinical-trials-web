@@ -1,0 +1,13 @@
+# Render Blueprint. Render builds the Docker image from ./Dockerfile on its own
+# servers, so no local Docker is needed — but the repo MUST include the committed
+# bin/clinical-trials-pp-cli-linux (regenerate with ./vendor-cli.sh). LLM keys are
+# BYOK (per-request X-LLM-Key header), never stored here.
+services:
+  - type: web
+    name: clinical-trials-web
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars: []

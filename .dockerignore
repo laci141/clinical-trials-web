@@ -1,0 +1,11 @@
+.git
+.gitignore
+.claude
+.DS_Store
+*.md
+# Windows binaries can't run in the Linux image; runtime copies only the linux CLI.
+*.exe
+bin/server*
+bin/*.exe
+# Build scratch used only to cross-compile the linux CLI.
+cli-src/
