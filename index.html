@@ -20,13 +20,17 @@
       radial-gradient(circle at 75% 75%,rgba(255,171,76,.12),transparent 45%),
       linear-gradient(135deg,#0f0f0f 0%,#1a1a2e 100%)}
 
+  /* transparent hero: the colorful body::before gradient must show through
+     behind .search-box, or its backdrop-filter has nothing to blur */
   .hero{min-height:70vh;display:flex;flex-direction:column;justify-content:center;align-items:center;
-    padding:2rem;text-align:center;background:linear-gradient(180deg,rgba(15,15,15,1),rgba(26,26,46,.8))}
+    padding:2rem;text-align:center;background:transparent}
   .hero h1{font-size:clamp(2rem,5vw,3.5rem);font-weight:700;margin-bottom:.5rem;
     background:linear-gradient(90deg,#00d4ff,#7c3aed);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-  .hero p{font-size:1.15rem;color:#999;margin-bottom:2rem;max-width:60ch}
+  .hero p{font-size:1.15rem;color:#999;margin-bottom:2rem;max-width:60ch;text-shadow:0 1px 6px rgba(0,0,0,.55)}
   .search-box{width:100%;max-width:760px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
-    border-radius:1rem;padding:1.2rem;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:0 8px 32px rgba(0,0,0,.3)}
+    border-radius:1rem;padding:1.2rem;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:0 8px 32px rgba(0,0,0,.3);
+    transition:border-color .3s,box-shadow .3s}
+  .search-box:hover{border-color:rgba(255,255,255,.22);box-shadow:0 12px 40px rgba(0,0,0,.4),0 0 24px rgba(0,212,255,.10)}
   .search-box input{width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);border-radius:.5rem;
     padding:1rem;color:#e0e0e0;font-size:1rem;outline:none;transition:.3s}
   .search-box input:focus{border-color:rgba(0,212,255,.5);box-shadow:inset 0 0 1rem rgba(0,212,255,.1)}
@@ -241,25 +245,37 @@ const isNum=n=>typeof n==="number"&&!isNaN(n);
 // is effectively required.
 const DEFAULT_MODELS={anthropic:"claude-haiku-4-5",openai:"gpt-5-mini",gemini:"gemini-2.5-flash",
   groq:"llama-3.3-70b-versatile",mistral:"mistral-small-latest",deepseek:"deepseek-chat",zai:"glm-5",
-  moonshot:"kimi-k2.6",qwen:"qwen3-max",minimax:"MiniMax-M2.7",xai:"grok-4-fast",openrouter:""};
+  moonshot:"kimi-k2.6",qwen:"qwen3-max",minimax:"MiniMax-M2.7",xai:"grok-4-fast",openrouter:"openrouter/free"};
+// Every known provider default — a model value in this set is NOT user-custom,
+// so switching providers may replace it with the new provider's default.
+const knownDefaults=new Set(Object.values(DEFAULT_MODELS).filter(Boolean));
 function updateModelHint(){
   const p=$("#llmProvider").value, hint=$("#modelHint"), model=$("#llmModel");
   if(p==="openrouter"){
-    hint.textContent="OpenRouter needs a model ID — e.g. deepseek/deepseek-chat or any :free model";
+    hint.textContent="OpenRouter needs a model ID — openrouter/free routes to a free model, or use any OpenRouter model ID";
     model.placeholder="Model (required for OpenRouter)";
   }else{
     hint.textContent="";
     model.placeholder="Model (optional · default: "+(DEFAULT_MODELS[p]||"provider default")+")";
   }
 }
+// Fill #llmModel with the current provider's default as a REAL editable value.
+// A user-custom model (non-empty and not a known default) is never clobbered.
+function applyDefaultModel(){
+  const model=$("#llmModel"), cur=model.value.trim();
+  if(cur && !knownDefaults.has(cur)) return;
+  model.value=DEFAULT_MODELS[$("#llmProvider").value]||"";
+  localStorage.setItem("ct_model",model.value);
+}
 
 // ---- localStorage BYOK ----
 (function load(){const k=localStorage.getItem("ct_key");if(k)$("#llmKey").value=k;
   const p=localStorage.getItem("ct_provider");if(p)$("#llmProvider").value=p;
-  const m=localStorage.getItem("ct_model");if(m)$("#llmModel").value=m;
+  const m=localStorage.getItem("ct_model");
+  if(m)$("#llmModel").value=m;else applyDefaultModel();
   updateModelHint();})();
 $("#llmKey").addEventListener("input",e=>localStorage.setItem("ct_key",e.target.value));
-$("#llmProvider").addEventListener("change",e=>{localStorage.setItem("ct_provider",e.target.value);updateModelHint();});
+$("#llmProvider").addEventListener("change",e=>{localStorage.setItem("ct_provider",e.target.value);applyDefaultModel();updateModelHint();});
 $("#llmModel").addEventListener("input",e=>localStorage.setItem("ct_model",e.target.value));
 
 // ---- build bento ----
