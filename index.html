@@ -14,10 +14,10 @@
      something visible to blur (a flat dark background makes blur a no-op). */
   body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
     background:
-      radial-gradient(circle at 15% 20%,rgba(0,212,255,.22),transparent 45%),
-      radial-gradient(circle at 85% 25%,rgba(124,58,237,.24),transparent 50%),
-      radial-gradient(circle at 30% 85%,rgba(47,214,166,.16),transparent 50%),
-      radial-gradient(circle at 75% 75%,rgba(255,171,76,.12),transparent 45%),
+      radial-gradient(circle at 15% 20%,rgba(0,212,255,.50),transparent 55%),
+      radial-gradient(circle at 85% 25%,rgba(124,58,237,.55),transparent 60%),
+      radial-gradient(circle at 30% 85%,rgba(47,214,166,.42),transparent 58%),
+      radial-gradient(circle at 75% 75%,rgba(255,171,76,.40),transparent 55%),
       linear-gradient(135deg,#0f0f0f 0%,#1a1a2e 100%)}
 
   /* transparent hero: the colorful body::before gradient must show through
@@ -95,6 +95,7 @@
     border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle}
   @keyframes spin{to{transform:rotate(360deg)}}
   .err{color:#ffb3b3}
+  .nct-hint{color:#fbbf24;font-size:.9rem}
 
   /* AI synthesis panel (glass card at the top of the results) */
   .ai-panel{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-left:4px solid #00d4ff;
@@ -142,7 +143,7 @@
   <h1>🔬 Clinical Trials Intelligence</h1>
   <p>Search, analyze, compare and monitor clinical trials across ClinicalTrials.gov, PubMed, OpenAlex &amp; the FAERS safety database — 30+ commands in six groups.</p>
   <div class="search-box">
-    <input id="heroQuery" type="text" placeholder="Disease, drug, or NCT ID — e.g. 'diabetes' or 'NCT07104383'">
+    <input id="heroQuery" type="text" placeholder="Disease, drug, or NCT ID — e.g. 'diabetes' or 'NCT07437157'">
     <div class="keyrow">
       <input id="llmKey" type="password" placeholder="LLM API key (optional, BYOK)" autocomplete="off">
       <select id="llmProvider">
@@ -195,17 +196,17 @@ const GROUPS = {
   "search-discovery":{icon:"🔍",title:"Search & Discovery",color:"#00d4ff",cmds:{
     search:{label:"Search trials",fields:[T("query","Query","diabetes"),LIM(10)]},
     digest:{label:"Digest snapshot",fields:[T("query","Condition / term","covid"),LIM(10)]},
-    similar:{label:"Similar trials",fields:[T("nctid","NCT ID","NCT07104383"),LIM(10)]},
+    similar:{label:"Similar trials",fields:[T("nctid","NCT ID","NCT07437157"),LIM(10)]},
     hotspots:{label:"Country hotspots",fields:[T("condition","Condition","melanoma")]},
     phase3:{label:"Phase 3 trials",fields:[T("condition","Condition","alzheimer"),LIM(20)]},
   }},
   "trial-analysis":{icon:"⚕️",title:"Trial Analysis",color:"#2fd6a6",cmds:{
-    risk:{label:"Risk read",fields:[T("nctid","NCT ID","NCT07104383")]},
-    forecast:{label:"Completion forecast",fields:[T("nctid","NCT ID","NCT07104383")]},
-    "enrollment-check":{label:"Enrollment plausibility",fields:[T("nctid","NCT ID","NCT07104383")]},
-    evidence:{label:"Linked evidence",fields:[T("nctid","NCT ID or term","NCT07104383"),LIM(10)]},
+    risk:{label:"Risk read",fields:[T("nctid","NCT ID","NCT07437157")]},
+    forecast:{label:"Completion forecast",fields:[T("nctid","NCT ID","NCT07437157")]},
+    "enrollment-check":{label:"Enrollment plausibility",fields:[T("nctid","NCT ID","NCT07437157")]},
+    evidence:{label:"Linked evidence",fields:[T("nctid","NCT ID or term","NCT07437157"),LIM(10)]},
     safety:{label:"FDA safety signals",fields:[T("drug","Drug","semaglutide"),LIM(10)]},
-    timeline:{label:"Trial timeline",fields:[T("nctid","NCT ID","NCT07104383")]},
+    timeline:{label:"Trial timeline",fields:[T("nctid","NCT ID","NCT07437157")]},
   }},
   "comparison":{icon:"⚖️",title:"Comparison",color:"#b681ff",cmds:{
     compare:{label:"Compare two drugs",fields:[T("drug1","Drug A","aspirin"),T("drug2","Drug B","ibuprofen")]},
@@ -220,8 +221,10 @@ const GROUPS = {
     watch:{label:"Watch a term",fields:[T("term","Term","glp-1")]},
   }},
   "data-management":{icon:"💾",title:"Data Management",color:"#fbbf24",cmds:{
-    export:{label:"Export data",fields:[T("resource","Resource","trials"),LIM(50)]},
-    "export-fhir":{label:"Export FHIR",fields:[T("nctid","NCT ID","NCT07104383"),
+    // the CLI's only valid export/import resource is "studies" — a dropdown
+    // with that single option can't produce an "unknown resource" error
+    export:{label:"Export data",fields:[{k:"resource",label:"Resource",type:"select",opts:["studies"]},LIM(50)]},
+    "export-fhir":{label:"Export FHIR",fields:[T("nctid","NCT ID","NCT07437157"),
       {k:"format",label:"Format",type:"select",opts:["fhir","csv"]}]},
   }},
   "system":{icon:"⚙️",title:"System & Info",color:"#9aa4bf",cmds:{
@@ -321,7 +324,10 @@ function renderFields(g,cmd){
     if(f.type==="limit") return `<label>${f.label} · <span id="lv">${f.def}</span></label>
       <input type="range" id="f_limit" min="1" max="200" value="${f.def}" oninput="document.getElementById('lv').textContent=this.value">`;
     if(f.type==="select") return `<label>${f.label}</label><select id="f_${f.k}">${f.opts.map(o=>`<option>${o}</option>`).join("")}</select>`;
-    const pre = (hero && ["query","nctid","condition","term","drug","area"].includes(f.k)) ? hero : "";
+    // Every text field starts with a REAL value: the hero text when the field
+    // is hero-linked and the hero box is non-empty, otherwise the field's
+    // example — so the first "Run" always sends something valid.
+    const pre = (hero && ["query","nctid","condition","term","drug","area"].includes(f.k)) ? hero : f.ph;
     return `<label>${f.label}</label><input type="text" id="f_${f.k}" placeholder="${esc(f.ph)}" value="${esc(pre)}">`;
   }).join("");
   if(!d.fields.length) box.innerHTML=`<p style="color:#888;margin-top:.6rem">No inputs required.</p>`;
@@ -330,11 +336,24 @@ function renderFields(g,cmd){
 async function run(g,cmd){
   const d=GROUPS[g].cmds[cmd];
   const body={command:cmd};
+  const res=$("#res");
   for(const f of d.fields){
     const el=document.getElementById("f_"+f.k);
     if(!el) continue;
-    if(f.type==="limit") body.limit=parseInt(el.value)||f.def;
-    else if(el.value.trim()) body[f.k]=el.value.trim();
+    if(f.type==="limit"){body.limit=parseInt(el.value)||f.def;continue;}
+    const v=el.value.trim();
+    // NCT guardrail: strict NCT fields must match NCT + 8 digits before we
+    // fire the request. Fields labeled "… or term" (evidence) accept free
+    // text, so they are only blocked when the value LOOKS like a malformed
+    // NCT attempt — a plain term must still pass.
+    if(f.k==="nctid"){
+      const lenient=/or term/i.test(f.label), isNCT=/^NCT\d{8}$/.test(v);
+      if((!lenient&&!isNCT)||(lenient&&/^nct/i.test(v)&&!isNCT)){
+        res.innerHTML=`<div class="rcard"><p class="nct-hint">⚠️ NCT IDs are NCT + 8 digits, e.g. NCT07437157</p></div>`;
+        return;
+      }
+    }
+    if(v) body[f.k]=v;
   }
   const key=$("#llmKey").value.trim();
   if(key){
@@ -342,7 +361,6 @@ async function run(g,cmd){
     const model=$("#llmModel").value.trim();
     if(model) body.model=model;
   }
-  const res=$("#res");
   res.innerHTML=`<div class="rcard"><span class="spin"></span> Running <b>${esc(cmd)}</b>…</div>`;
   const headers={"Content-Type":"application/json"};
   if(key){headers["X-LLM-Key"]=key;headers["X-LLM-Provider"]=$("#llmProvider").value;}
