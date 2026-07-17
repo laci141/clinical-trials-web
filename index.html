@@ -9,40 +9,40 @@
   html{scroll-behavior:smooth}
   body{
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
-    background:linear-gradient(135deg,#0f0f0f 0%,#1a1a2e 100%);color:#e0e0e0;line-height:1.6;min-height:100vh}
+    background:linear-gradient(135deg,#0a0a12 0%,#15152a 100%);color:#e0e0e0;line-height:1.6;min-height:100vh}
   /* Colorful fixed backdrop so backdrop-filter blur on the glass panels has
      something visible to blur (a flat dark background makes blur a no-op). */
   body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
     background:
-      radial-gradient(circle at 15% 20%,rgba(0,212,255,.50),transparent 55%),
-      radial-gradient(circle at 85% 25%,rgba(124,58,237,.55),transparent 60%),
-      radial-gradient(circle at 30% 85%,rgba(47,214,166,.42),transparent 58%),
-      radial-gradient(circle at 75% 75%,rgba(255,171,76,.40),transparent 55%),
-      linear-gradient(135deg,#0f0f0f 0%,#1a1a2e 100%)}
+      radial-gradient(circle at 15% 20%,rgba(0,212,255,.26),transparent 55%),
+      radial-gradient(circle at 85% 25%,rgba(124,58,237,.28),transparent 60%),
+      radial-gradient(circle at 30% 85%,rgba(47,214,166,.22),transparent 58%),
+      radial-gradient(circle at 75% 75%,rgba(255,171,76,.20),transparent 55%),
+      linear-gradient(135deg,#0a0a12 0%,#15152a 100%)}
 
   /* transparent hero: the colorful body::before gradient must show through
      behind .search-box, or its backdrop-filter has nothing to blur */
-  .hero{min-height:70vh;display:flex;flex-direction:column;justify-content:center;align-items:center;
-    padding:2rem;text-align:center;background:transparent}
+  .hero{min-height:auto;display:flex;flex-direction:column;justify-content:center;align-items:center;
+    padding:3.5rem 1rem 1rem;text-align:center;background:transparent}
   .hero h1{font-size:clamp(2rem,5vw,3.5rem);font-weight:700;margin-bottom:.5rem;
     background:linear-gradient(90deg,#00d4ff,#7c3aed);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
   .hero p{font-size:1.15rem;color:#999;margin-bottom:2rem;max-width:60ch;text-shadow:0 1px 6px rgba(0,0,0,.55)}
-  .search-box{width:100%;max-width:760px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
-    border-radius:1rem;padding:1.2rem;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:0 8px 32px rgba(0,0,0,.3);
+  .search-box{width:100%;max-width:990px;background:rgba(255,255,255,.085);border:1px solid rgba(255,255,255,.16);
+    border-radius:1rem;padding:1.2rem;-webkit-backdrop-filter:blur(15px);backdrop-filter:blur(15px);box-shadow:0 8px 32px rgba(0,0,0,.3);
     transition:border-color .3s,box-shadow .3s}
   .search-box:hover{border-color:rgba(255,255,255,.22);box-shadow:0 12px 40px rgba(0,0,0,.4),0 0 24px rgba(0,212,255,.10)}
   .search-box input{width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);border-radius:.5rem;
     padding:1rem;color:#e0e0e0;font-size:1rem;outline:none;transition:.3s}
   .search-box input:focus{border-color:rgba(0,212,255,.5);box-shadow:inset 0 0 1rem rgba(0,212,255,.1)}
-  .keyrow{display:flex;gap:.6rem;margin-top:.8rem;flex-wrap:wrap}
-  .keyrow input,.keyrow select{flex:1;min-width:150px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);
+  .keyrow{display:flex;flex-direction:column;gap:.6rem;margin-top:.8rem}
+  .keyrow input,.keyrow select{width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);
     border-radius:.5rem;padding:.6rem;color:#e0e0e0;font-size:.9rem}
   .keyrow select option{background:#1a1a2e}
   .keyhint{font-size:.78rem;color:#888;margin-top:.5rem}
 
-  .bento{display:grid;grid-template-columns:repeat(3,1fr);gap:1.4rem;padding:3rem 2rem;max-width:1200px;margin:0 auto}
-  .card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:1rem;padding:1.8rem;
-    cursor:pointer;transition:.3s;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);min-height:150px;display:flex;flex-direction:column;
+  .bento{display:grid;grid-template-columns:repeat(3,1fr);gap:2.4rem;padding:1.25rem 2rem 3rem;max-width:1200px;margin:0 auto}
+  .card{background:rgba(255,255,255,.085);border:1px solid rgba(255,255,255,.16);border-radius:1rem;padding:1.8rem;
+    cursor:pointer;transition:.3s;-webkit-backdrop-filter:blur(15px);backdrop-filter:blur(15px);min-height:150px;display:flex;flex-direction:column;
     justify-content:center;align-items:center;text-align:center;border-left:4px solid var(--c)}
   .card:hover{transform:translateY(-8px);border-color:rgba(255,255,255,.3);box-shadow:0 16px 48px rgba(0,0,0,.4)}
   .card .ic{font-size:2.6rem;margin-bottom:.7rem}
@@ -99,6 +99,17 @@
   @keyframes spin{to{transform:rotate(360deg)}}
   .err{color:#ffb3b3}
   .nct-hint{color:#fbbf24;font-size:.9rem}
+  /* "verify at source" link on every NCT ID */
+  .nctl{color:#00d4ff;text-decoration:none}
+  .nctl:hover{text-decoration:underline}
+  /* one-line plain-language command description in the modal */
+  .cmd-desc{font-size:.85rem;color:#98a0b8;margin:.15rem 0 .1rem}
+  /* clickable example chips under modal inputs */
+  .tryrow{font-size:.78rem;color:#888;margin-top:.4rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}
+  button.chip.ex{cursor:pointer;color:#cfd6ea;font-family:inherit;font-size:.78rem;transition:.2s}
+  button.chip.ex:hover{border-color:rgba(0,212,255,.5);color:#fff;background:rgba(0,212,255,.08)}
+  /* inline empty-field validation message */
+  .ferr{color:#ff8080;font-size:.8rem;margin-top:.3rem}
 
   /* AI synthesis panel (glass card at the top of the results) */
   .ai-panel{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-left:4px solid #00d4ff;
@@ -197,54 +208,75 @@ const LIM=(def)=>({k:"limit",label:"Limit",type:"limit",def:def||10});
 // server's positional-arg routing verified from the CLI --help).
 const GROUPS = {
   "search-discovery":{icon:"🔍",title:"Search & Discovery",color:"#00d4ff",cmds:{
-    search:{label:"Search trials",fields:[T("query","Query","diabetes"),LIM(10)]},
-    digest:{label:"Digest snapshot",fields:[T("query","Condition / term","covid"),LIM(10)]},
-    similar:{label:"Similar trials",fields:[T("nctid","NCT ID","NCT07437157"),LIM(10)]},
-    hotspots:{label:"Country hotspots",fields:[T("condition","Condition","melanoma")]},
-    phase3:{label:"Phase 3 trials",fields:[T("condition","Condition","alzheimer"),LIM(20)]},
+    search:{label:"Search trials",desc:"Find clinical trials by disease, drug, or keyword.",fields:[T("query","Query","diabetes"),LIM(10)]},
+    digest:{label:"Digest snapshot",desc:"Quick activity snapshot of trials for a term.",fields:[T("query","Condition / term","covid"),LIM(10)]},
+    similar:{label:"Similar trials",desc:"Find trials similar to one you already know.",fields:[T("nctid","NCT ID","NCT07437157"),LIM(10)]},
+    hotspots:{label:"Country hotspots",desc:"Which countries run the most trials for a condition.",fields:[T("condition","Condition","melanoma")]},
+    phase3:{label:"Phase 3 trials",desc:"Late-stage (Phase 3) trials for a condition.",fields:[T("condition","Condition","alzheimer"),LIM(20)]},
   }},
   "trial-analysis":{icon:"⚕️",title:"Trial Analysis",color:"#2fd6a6",cmds:{
-    risk:{label:"Risk read",fields:[T("nctid","NCT ID","NCT07437157")]},
-    forecast:{label:"Completion forecast",fields:[T("nctid","NCT ID","NCT07437157")]},
-    "enrollment-check":{label:"Enrollment plausibility",fields:[T("nctid","NCT ID","NCT07437157")]},
-    evidence:{label:"Linked evidence",fields:[T("nctid","NCT ID or term","NCT07437157"),LIM(10)]},
-    safety:{label:"FDA safety signals",fields:[T("drug","Drug","semaglutide"),LIM(10)]},
-    timeline:{label:"Trial timeline",fields:[T("nctid","NCT ID","NCT07437157")]},
+    risk:{label:"Risk read",desc:"Explainable risk read on one trial from registry signals.",fields:[T("nctid","NCT ID","NCT07437157")]},
+    forecast:{label:"Completion forecast",desc:"Will this trial finish on time? A data-based outlook.",fields:[T("nctid","NCT ID","NCT07437157")]},
+    "enrollment-check":{label:"Enrollment plausibility",desc:"Is this trial's enrollment target realistic?",fields:[T("nctid","NCT ID","NCT07437157")]},
+    evidence:{label:"Linked evidence",desc:"Published papers linked to a trial or topic.",fields:[T("nctid","NCT ID or term","NCT07437157"),LIM(10)]},
+    safety:{label:"FDA safety signals",desc:"FDA adverse-event report counts for a drug.",fields:[T("drug","Drug","semaglutide"),LIM(10)]},
+    timeline:{label:"Trial timeline",desc:"Key dates and milestones for one trial.",fields:[T("nctid","NCT ID","NCT07437157")]},
   }},
   "comparison":{icon:"⚖️",title:"Comparison",color:"#b681ff",cmds:{
-    compare:{label:"Compare two drugs",fields:[T("drug1","Drug A","aspirin"),T("drug2","Drug B","ibuprofen")]},
-    sponsors:{label:"Top sponsors",fields:[T("area","Disease area","oncology"),LIM(10)]},
-    velocity:{label:"Research velocity",fields:[T("area","Disease area","oncology")]},
+    compare:{label:"Compare two drugs",desc:"Compare two drugs by trial counts, phases, and sponsors.",fields:[T("drug1","Drug A","aspirin"),T("drug2","Drug B","ibuprofen")]},
+    sponsors:{label:"Top sponsors",desc:"Who runs the most trials in a disease area.",fields:[T("area","Disease area","oncology"),LIM(10)]},
+    velocity:{label:"Research velocity",desc:"How fast a disease area's trials are growing.",fields:[T("area","Disease area","oncology")]},
   }},
   // tail (endless polling) and data-management sync/import (local SQLite
   // writes) are hidden here: pointless on an ephemeral-disk web deploy. The
   // server still routes them for local/admin use.
   "recruiting-watch":{icon:"📋",title:"Recruiting & Watch",color:"#ffab4c",cmds:{
-    recruiting:{label:"Recruiting trials",fields:[T("condition","Condition","heart disease"),LIM(10)]},
-    watch:{label:"Watch a term",fields:[T("term","Term","glp-1")]},
+    recruiting:{label:"Recruiting trials",desc:"Trials currently recruiting for a condition.",fields:[T("condition","Condition","heart disease"),LIM(10)]},
+    watch:{label:"Watch a term",desc:"Save a term to watch for new trials.",fields:[T("term","Term","glp-1")]},
   }},
   "data-management":{icon:"💾",title:"Data Management",color:"#fbbf24",cmds:{
     // the CLI's only valid export/import resource is "studies" — a dropdown
     // with that single option can't produce an "unknown resource" error
-    export:{label:"Export data",fields:[{k:"resource",label:"Resource",type:"select",opts:["studies"]},LIM(50)]},
-    "export-fhir":{label:"Export FHIR",fields:[T("nctid","NCT ID","NCT07437157"),
+    export:{label:"Export data",desc:"Download stored trial data.",fields:[{k:"resource",label:"Resource",type:"select",opts:["studies"]},LIM(50)]},
+    "export-fhir":{label:"Export FHIR",desc:"Export one trial as FHIR or CSV.",fields:[T("nctid","NCT ID","NCT07437157"),
       {k:"format",label:"Format",type:"select",opts:["fhir","csv"]}]},
   }},
   "system":{icon:"⚙️",title:"System & Info",color:"#9aa4bf",cmds:{
-    health:{label:"Source health",fields:[]},
-    doctor:{label:"CLI doctor",fields:[]},
-    analytics:{label:"Local analytics",fields:[]},
-    "agent-context":{label:"Agent context",fields:[]},
-    version:{label:"Version",fields:[]},
-    "clinicaltrials-gov-version":{label:"CT.gov API version",fields:[]},
-    api:{label:"Browse API",fields:[T("interface","Interface (optional)","")]},
-    feedback:{label:"Send feedback",fields:[T("text","Feedback text","")]},
+    health:{label:"Source health",desc:"Check that all data sources are reachable.",fields:[]},
+    doctor:{label:"CLI doctor",desc:"Diagnose the tool's setup and connectivity.",fields:[]},
+    analytics:{label:"Local analytics",desc:"Usage statistics stored on the server.",fields:[]},
+    "agent-context":{label:"Agent context",desc:"Machine-readable context for AI agents.",fields:[]},
+    version:{label:"Version",desc:"Show the tool version.",fields:[]},
+    "clinicaltrials-gov-version":{label:"CT.gov API version",desc:"Show the ClinicalTrials.gov API version.",fields:[]},
+    api:{label:"Browse API",desc:"List the API's command groups and interfaces.",fields:[T("interface","Interface (optional)","")]},
+    feedback:{label:"Send feedback",desc:"Send a note to the developers.",fields:[T("text","Feedback text","")]},
   }},
 };
 
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const isNum=n=>typeof n==="number"&&!isNaN(n);
+
+// "Verify at source": any exact NCT ID renders as a clinicaltrials.gov link.
+// Returns null for non-NCT values so callers fall back to their own escaping.
+const nctLink=v=>{const s=String(v==null?"":v);
+  return /^NCT\d{8}$/.test(s)?`<a class="nctl" href="https://clinicaltrials.gov/study/${s}" target="_blank" rel="noopener">${s} ↗</a>`:null;};
+
+// Clickable examples per command.field — clicking a chip fills the input.
+const NCT_EX=["NCT07437157","NCT03004612","NCT02097758","NCT06099158","NCT06573892"];
+const AREA_EX=["oncology","cardiology","neurology","immunology","gastroenterology","endocrinology","rheumatology","pulmonology"];
+const EXAMPLES={
+  "search.query":["cancer","COVID-19","hypertension","asthma","depression","Parkinson","obesity"],
+  "risk.nctid":NCT_EX,"forecast.nctid":NCT_EX,"enrollment-check.nctid":NCT_EX,
+  "timeline.nctid":NCT_EX,"evidence.nctid":NCT_EX,"similar.nctid":NCT_EX,
+  "safety.drug":["semaglutide","metformin","aspirin","ibuprofen","atorvastatin"],
+  "sponsors.area":AREA_EX,"velocity.area":AREA_EX,
+  "recruiting.condition":["diabetes","heart disease","cancer","asthma","depression"],
+};
+const COMPARE_EX=[["aspirin","ibuprofen"],["metformin","insulin"],["semaglutide","tirzepatide"]];
+window.__fill=(id,v)=>{const el=document.getElementById(id);if(el){el.value=v;el.focus();}};
+window.__fillPair=(a,b)=>{const d1=document.getElementById("f_drug1"),d2=document.getElementById("f_drug2");
+  if(d1)d1.value=a;if(d2)d2.value=b;};
 
 // Default model per provider (mirrors the server's registry) — shown as a
 // placeholder/hint; openrouter routes to any hosted model, so a model there
@@ -308,6 +340,7 @@ function openGroup(g){
     <div class="modal-head"><h2>${cfg.icon} ${esc(cfg.title)}</h2><button class="x" onclick="__close()">&times;</button></div>
     <label>Command</label>
     <select id="cmdSel">${opts}</select>
+    <p class="cmd-desc" id="cmdDesc"></p>
     <div id="fields"></div>
     <button class="btn" id="runBtn">Run</button>
     <div class="results" id="res"></div>`;
@@ -323,6 +356,9 @@ window.__close=closeModal;
 function renderFields(g,cmd){
   const d=GROUPS[g].cmds[cmd], box=$("#fields");
   const hero=$("#heroQuery").value.trim();
+  const descEl=$("#cmdDesc"); if(descEl) descEl.textContent=d.desc||"";
+  const tryRow=(id,ex)=>`<div class="tryrow">Try:${ex.map(x=>
+    `<button type="button" class="chip ex" onclick="__fill('${id}',this.textContent)">${esc(x)}</button>`).join("")}</div>`;
   box.innerHTML=d.fields.map(f=>{
     if(f.type==="limit") return `<label>${f.label} · <span id="lv">${f.def}</span></label>
       <input type="range" id="f_limit" min="1" max="200" value="${f.def}" oninput="document.getElementById('lv').textContent=this.value">`;
@@ -331,25 +367,46 @@ function renderFields(g,cmd){
     // is hero-linked and the hero box is non-empty, otherwise the field's
     // example — so the first "Run" always sends something valid.
     const pre = (hero && ["query","nctid","condition","term","drug","area"].includes(f.k)) ? hero : f.ph;
-    return `<label>${f.label}</label><input type="text" id="f_${f.k}" placeholder="${esc(f.ph)}" value="${esc(pre)}">`;
+    const ex=EXAMPLES[cmd+"."+f.k];
+    return `<label>${f.label}</label><input type="text" id="f_${f.k}" placeholder="${esc(f.ph)}" value="${esc(pre)}">
+      <div class="ferr" id="e_${f.k}"></div>${ex?tryRow("f_"+f.k,ex):""}`;
   }).join("");
+  // compare gets pair chips that fill BOTH drug fields at once
+  if(cmd==="compare") box.innerHTML+=`<div class="tryrow">Try:${COMPARE_EX.map(p=>
+    `<button type="button" class="chip ex" onclick="__fillPair('${p[0]}','${p[1]}')">${p[0]} vs ${p[1]}</button>`).join("")}</div>`;
   if(!d.fields.length) box.innerHTML=`<p style="color:#888;margin-top:.6rem">No inputs required.</p>`;
 }
+
+// Inline message for a required field left empty — no request is fired.
+const REQ_MSG={nctid:"Please enter an NCT ID",drug:"Please enter a drug name",
+  drug1:"Please enter a drug name",drug2:"Please enter a drug name",
+  query:"Please enter a search term",condition:"Please enter a condition",
+  term:"Please enter a term",area:"Please enter a disease area",
+  text:"Please enter your feedback"};
 
 async function run(g,cmd){
   const d=GROUPS[g].cmds[cmd];
   const body={command:cmd};
   const res=$("#res");
+  document.querySelectorAll(".ferr").forEach(e=>e.textContent="");
+  let bad=false;
   for(const f of d.fields){
     const el=document.getElementById("f_"+f.k);
     if(!el) continue;
     if(f.type==="limit"){body.limit=parseInt(el.value)||f.def;continue;}
     const v=el.value.trim();
+    // Empty required field → short inline message under it instead of a
+    // request that errors. Fields labeled "(optional)" are never blocked.
+    if(f.type==="text"&&!v&&!/optional/i.test(f.label)){
+      const e=document.getElementById("e_"+f.k);
+      if(e)e.textContent=REQ_MSG[f.k]||"Please fill in this field";
+      bad=true;continue;
+    }
     // NCT guardrail: strict NCT fields must match NCT + 8 digits before we
     // fire the request. Fields labeled "… or term" (evidence) accept free
     // text, so they are only blocked when the value LOOKS like a malformed
     // NCT attempt — a plain term must still pass.
-    if(f.k==="nctid"){
+    if(f.k==="nctid"&&v){
       const lenient=/or term/i.test(f.label), isNCT=/^NCT\d{8}$/.test(v);
       if((!lenient&&!isNCT)||(lenient&&/^nct/i.test(v)&&!isNCT)){
         res.innerHTML=`<div class="rcard"><p class="nct-hint">⚠️ NCT IDs are NCT + 8 digits, e.g. NCT07437157</p></div>`;
@@ -358,6 +415,7 @@ async function run(g,cmd){
     }
     if(v) body[f.k]=v;
   }
+  if(bad) return;
   const key=$("#llmKey").value.trim();
   if(key){
     body.provider=$("#llmProvider").value;
@@ -414,7 +472,7 @@ function renderBody(r){
   if(isNum(r.score)&&r.level){
     const pc=Math.max(0,Math.min(100,Math.round(r.score*100)));
     const col=r.score>=0.66?"#ff6b6b":r.score>=0.33?"#ffab4c":"#2fd6a6";
-    return `<div class="rcard"><h3>${esc(r.title||r.id||"Risk")}</h3>
+    return `<div class="rcard"><h3>${nctLink(r.title||r.id)||esc(r.title||r.id||"Risk")}</h3>
       <div style="display:flex;gap:1rem;align-items:center">
         <div class="score" style="--p:${pc};--sc:${col}"><span>${(Math.round(r.score*100)/100)}</span></div>
         <div><div class="chips">
@@ -439,7 +497,7 @@ function renderBody(r){
 function filteredNote(r){
   const n=r.filtered_count, hid=r.filtered_out;
   if(!n||!Array.isArray(hid)||!hid.length) return "";
-  const items=hid.map(x=>`<li><b>${esc(x.id||"")}</b> ${esc(x.title||"")}
+  const items=hid.map(x=>`<li><b>${nctLink(x.id)||esc(x.id||"")}</b> ${esc(x.title||"")}
     ${Array.isArray(x.conditions)&&x.conditions.length?`<div class="filtered-conds">${esc(x.conditions.join(" · "))}</div>`:""}</li>`).join("");
   return `<div class="filtered-note">🚫 ${n} off-topic trial${n===1?"":"s"} hidden by relevance filter</div>
     <details class="filtered-section"><summary>Show hidden trials (${n})</summary><ul class="li">${items}</ul></details>`;
@@ -449,13 +507,13 @@ function sideCard(x){return `<div class="rcard compare-side"><h3>${esc(x.name||x
 function factorList(f){if(!Array.isArray(f)||!f.length)return"";
   return `<ul class="li" style="margin-top:.6rem">`+f.map(x=>`<li>${esc(typeof x==="object"?(x.name||x.factor||JSON.stringify(x))+(x.detail?" — "+x.detail:""):x)}</li>`).join("")+`</ul>`;}
 function scalarChips(o){const c=Object.entries(o).filter(([k,v])=>v!=null&&typeof v!=="object")
-    .map(([k,v])=>`<span class="chip">${esc(k)} <b>${esc(String(v).slice(0,60))}</b></span>`).join("");
+    .map(([k,v])=>`<span class="chip">${esc(k)} <b>${nctLink(v)||esc(String(v).slice(0,60))}</b></span>`).join("");
   return c?`<div class="chips">${c}</div>`:"";}
 function objTable(arr){
   if(!arr.length) return `<p style="color:#888">Empty.</p>`;
-  if(typeof arr[0]!=="object") return `<ul class="li">`+arr.map(x=>`<li>${esc(x)}</li>`).join("")+`</ul>`;
+  if(typeof arr[0]!=="object") return `<ul class="li">`+arr.map(x=>`<li>${nctLink(x)||esc(x)}</li>`).join("")+`</ul>`;
   const cols=Array.from(new Set(arr.flatMap(o=>Object.keys(o)))).filter(k=>typeof (arr[0][k])!=="object").slice(0,6);
-  const rows=arr.slice(0,25).map(o=>`<tr>${cols.map(c=>`<td>${esc(String(o[c]==null?"":o[c])).slice(0,80)}</td>`).join("")}</tr>`).join("");
+  const rows=arr.slice(0,25).map(o=>`<tr>${cols.map(c=>`<td>${nctLink(o[c])||esc(String(o[c]==null?"":o[c])).slice(0,80)}</td>`).join("")}</tr>`).join("");
   return `<table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>
      ${arr.length>25?`<p style="color:#888;font-size:.8rem">…and ${arr.length-25} more</p>`:""}`;
 }
