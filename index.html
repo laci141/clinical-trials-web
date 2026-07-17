@@ -26,8 +26,8 @@
     padding:3.5rem 1rem 1rem;text-align:center;background:transparent}
   .hero h1{font-size:clamp(2rem,5vw,3.5rem);font-weight:700;margin-bottom:.5rem;
     background:linear-gradient(90deg,#00d4ff,#7c3aed);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-  .hero p{font-size:1.15rem;color:#999;margin-bottom:2rem;max-width:60ch;text-shadow:0 1px 6px rgba(0,0,0,.55)}
-  .search-box{width:100%;max-width:990px;background:rgba(255,255,255,.085);border:1px solid rgba(255,255,255,.16);
+  .hero p{font-size:1.15rem;color:#bdbdbd;margin-bottom:2rem;max-width:78ch;text-shadow:0 1px 6px rgba(0,0,0,.55)}
+  .search-box{width:100%;max-width:1140px;background:rgba(255,255,255,.085);border:1px solid rgba(255,255,255,.16);
     border-radius:1rem;padding:1.2rem;-webkit-backdrop-filter:blur(15px);backdrop-filter:blur(15px);box-shadow:0 8px 32px rgba(0,0,0,.3);
     transition:border-color .3s,box-shadow .3s}
   .search-box:hover{border-color:rgba(255,255,255,.22);box-shadow:0 12px 40px rgba(0,0,0,.4),0 0 24px rgba(0,212,255,.10)}
@@ -38,7 +38,7 @@
   .keyrow input,.keyrow select{width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);
     border-radius:.5rem;padding:.6rem;color:#e0e0e0;font-size:.9rem}
   .keyrow select option{background:#1a1a2e}
-  .keyhint{font-size:.78rem;color:#888;margin-top:.5rem}
+  .keyhint{font-size:.9rem;color:#888;margin-top:.5rem}
 
   .bento{display:grid;grid-template-columns:repeat(3,1fr);gap:2.4rem;padding:1.25rem 2rem 3rem;max-width:1200px;margin:0 auto}
   .card{background:rgba(255,255,255,.085);border:1px solid rgba(255,255,255,.16);border-radius:1rem;padding:1.8rem;
@@ -46,8 +46,8 @@
     justify-content:center;align-items:center;text-align:center;border-left:4px solid var(--c)}
   .card:hover{transform:translateY(-8px);border-color:rgba(255,255,255,.3);box-shadow:0 16px 48px rgba(0,0,0,.4)}
   .card .ic{font-size:2.6rem;margin-bottom:.7rem}
-  .card .lb{font-size:1.15rem;font-weight:600;color:var(--c)}
-  .card .sub{font-size:.78rem;color:#888;margin-top:.35rem}
+  .card .lb{font-size:1.45rem;font-weight:600;color:var(--c)}
+  .card .sub{font-size:.78rem;color:#bdbdbd;margin-top:.35rem}
 
   .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);
     justify-content:center;align-items:center;z-index:1000;animation:fade .3s ease;padding:1rem}
@@ -110,6 +110,11 @@
   button.chip.ex:hover{border-color:rgba(0,212,255,.5);color:#fff;background:rgba(0,212,255,.08)}
   /* inline empty-field validation message */
   .ferr{color:#ff8080;font-size:.8rem;margin-top:.3rem}
+  /* fixed-column chip grid: exactly 2 tidy rows of equal-width pills */
+  .trygrid{display:grid;gap:.4rem;flex:1 1 100%;width:100%}
+  .trygrid .chip.ex{width:100%;text-align:center}
+  /* muted note under a select (e.g. export's single "studies" resource) */
+  .fnote{font-size:.78rem;color:#888;margin-top:.3rem}
 
   /* AI synthesis panel (glass card at the top of the results) */
   .ai-panel{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-left:4px solid #00d4ff;
@@ -127,7 +132,7 @@
     border-radius:.5rem;padding:.5rem .8rem;margin-top:.8rem}
   .llm-error-note{font-size:.85rem;color:#fbbf24;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);
     border-radius:.5rem;padding:.6rem .9rem;margin-bottom:1rem}
-  .model-hint{font-size:.75rem;color:#888;margin-top:.3rem}
+  .model-hint{font-size:.75rem;color:#a6a6a6;margin-top:.3rem}
 
   /* Relevance-filter transparency (PRISMA-style): muted note + closed glass details */
   .filtered-note{font-size:.8rem;color:#888;margin:.2rem 0 .4rem}
@@ -143,7 +148,7 @@
   @media(max-width:768px){
     .bento{grid-template-columns:1fr}.hero{min-height:auto;padding-top:3rem}
     /* mobile: lighter blur + tighter padding on the glass panels */
-    .search-box{-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);padding:.9rem}
+    .search-box{-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);padding:.9rem;max-width:96%}
     .card{-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);padding:1.2rem}
     .ai-panel{-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);padding:.9rem 1rem}
     .filtered-section{-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
@@ -237,8 +242,9 @@ const GROUPS = {
   "data-management":{icon:"💾",title:"Data Management",color:"#fbbf24",cmds:{
     // the CLI's only valid export/import resource is "studies" — a dropdown
     // with that single option can't produce an "unknown resource" error
-    export:{label:"Export data",desc:"Download stored trial data.",fields:[{k:"resource",label:"Resource",type:"select",opts:["studies"]},LIM(50)]},
-    "export-fhir":{label:"Export FHIR",desc:"Export one trial as FHIR or CSV.",fields:[T("nctid","NCT ID","NCT07437157"),
+    export:{label:"Export data",desc:"Download stored trial data.",fields:[{k:"resource",label:"Resource",type:"select",opts:["studies"],
+      note:"Only 'studies' is available — exports full trial records as JSON."},LIM(50)]},
+    "export-fhir":{label:"Export FHIR",desc:"Export one trial's registry data as a FHIR ResearchStudy.",fields:[T("nctid","NCT ID","NCT07437157"),
       {k:"format",label:"Format",type:"select",opts:["fhir","csv"]}]},
   }},
   "system":{icon:"⚙️",title:"System & Info",color:"#9aa4bf",cmds:{
@@ -263,16 +269,23 @@ const nctLink=v=>{const s=String(v==null?"":v);
   return /^NCT\d{8}$/.test(s)?`<a class="nctl" href="https://clinicaltrials.gov/study/${s}" target="_blank" rel="noopener">${s} ↗</a>`:null;};
 
 // Clickable examples per command.field — clicking a chip fills the input.
-const NCT_EX=["NCT07437157","NCT03004612","NCT02097758","NCT06099158","NCT06573892"];
+const NCT_EX=["NCT07437157","NCT03004612","NCT02097758","NCT06099158","NCT06573892","NCT06632834"];
 const AREA_EX=["oncology","cardiology","neurology","immunology","gastroenterology","endocrinology","rheumatology","pulmonology"];
 const EXAMPLES={
-  "search.query":["cancer","COVID-19","hypertension","asthma","depression","Parkinson","obesity"],
+  "search.query":["cancer","COVID-19","hypertension","asthma","depression","Parkinson",
+    "obesity","Alzheimer","stroke","arthritis","migraine","HIV"],
   "risk.nctid":NCT_EX,"forecast.nctid":NCT_EX,"enrollment-check.nctid":NCT_EX,
-  "timeline.nctid":NCT_EX,"evidence.nctid":NCT_EX,"similar.nctid":NCT_EX,
+  "timeline.nctid":NCT_EX,"evidence.nctid":NCT_EX,"similar.nctid":NCT_EX,"export-fhir.nctid":NCT_EX,
   "safety.drug":["semaglutide","metformin","aspirin","ibuprofen","atorvastatin"],
   "sponsors.area":AREA_EX,"velocity.area":AREA_EX,
-  "recruiting.condition":["diabetes","heart disease","cancer","asthma","depression"],
+  "recruiting.condition":["diabetes","heart disease","cancer","asthma","depression",
+    "hypertension","stroke","obesity","arthritis","COPD"],
 };
+// Fixed grid column count per field → the chips land in exactly 2 tidy rows.
+// Fields not listed here keep the normal flex-wrap chip flow.
+const EX_COLS={"search.query":6,"recruiting.condition":5,
+  "risk.nctid":3,"forecast.nctid":3,"enrollment-check.nctid":3,
+  "timeline.nctid":3,"evidence.nctid":3,"similar.nctid":3,"export-fhir.nctid":3};
 const COMPARE_EX=[["aspirin","ibuprofen"],["metformin","insulin"],["semaglutide","tirzepatide"]];
 window.__fill=(id,v)=>{const el=document.getElementById(id);if(el){el.value=v;el.focus();}};
 window.__fillPair=(a,b)=>{const d1=document.getElementById("f_drug1"),d2=document.getElementById("f_drug2");
@@ -357,19 +370,22 @@ function renderFields(g,cmd){
   const d=GROUPS[g].cmds[cmd], box=$("#fields");
   const hero=$("#heroQuery").value.trim();
   const descEl=$("#cmdDesc"); if(descEl) descEl.textContent=d.desc||"";
-  const tryRow=(id,ex)=>`<div class="tryrow">Try:${ex.map(x=>
-    `<button type="button" class="chip ex" onclick="__fill('${id}',this.textContent)">${esc(x)}</button>`).join("")}</div>`;
+  const tryRow=(id,ex,cols)=>{
+    const chips=ex.map(x=>`<button type="button" class="chip ex" onclick="__fill('${id}',this.textContent)">${esc(x)}</button>`).join("");
+    return cols?`<div class="tryrow">Try:<div class="trygrid" style="grid-template-columns:repeat(${cols},1fr)">${chips}</div></div>`
+               :`<div class="tryrow">Try:${chips}</div>`;
+  };
   box.innerHTML=d.fields.map(f=>{
     if(f.type==="limit") return `<label>${f.label} · <span id="lv">${f.def}</span></label>
       <input type="range" id="f_limit" min="1" max="200" value="${f.def}" oninput="document.getElementById('lv').textContent=this.value">`;
-    if(f.type==="select") return `<label>${f.label}</label><select id="f_${f.k}">${f.opts.map(o=>`<option>${o}</option>`).join("")}</select>`;
+    if(f.type==="select") return `<label>${f.label}</label><select id="f_${f.k}">${f.opts.map(o=>`<option>${o}</option>`).join("")}</select>${f.note?`<div class="fnote">${esc(f.note)}</div>`:""}`;
     // Every text field starts with a REAL value: the hero text when the field
     // is hero-linked and the hero box is non-empty, otherwise the field's
     // example — so the first "Run" always sends something valid.
     const pre = (hero && ["query","nctid","condition","term","drug","area"].includes(f.k)) ? hero : f.ph;
     const ex=EXAMPLES[cmd+"."+f.k];
     return `<label>${f.label}</label><input type="text" id="f_${f.k}" placeholder="${esc(f.ph)}" value="${esc(pre)}">
-      <div class="ferr" id="e_${f.k}"></div>${ex?tryRow("f_"+f.k,ex):""}`;
+      <div class="ferr" id="e_${f.k}"></div>${ex?tryRow("f_"+f.k,ex,EX_COLS[cmd+"."+f.k]):""}`;
   }).join("");
   // compare gets pair chips that fill BOTH drug fields at once
   if(cmd==="compare") box.innerHTML+=`<div class="tryrow">Try:${COMPARE_EX.map(p=>
