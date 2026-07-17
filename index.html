@@ -38,7 +38,7 @@
   .keyrow input,.keyrow select{width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);
     border-radius:.5rem;padding:.6rem;color:#e0e0e0;font-size:.9rem}
   .keyrow select option{background:#1a1a2e}
-  .keyhint{font-size:.9rem;color:#888;margin-top:.5rem}
+  .keyhint{font-size:.7rem;color:#707070;margin-top:.5rem}
 
   .bento{display:grid;grid-template-columns:repeat(3,1fr);gap:2.4rem;padding:1.25rem 2rem 3rem;max-width:1200px;margin:0 auto}
   .card{background:rgba(255,255,255,.085);border:1px solid rgba(255,255,255,.16);border-radius:1rem;padding:1.8rem;
@@ -267,6 +267,11 @@ const isNum=n=>typeof n==="number"&&!isNaN(n);
 // Returns null for non-NCT values so callers fall back to their own escaping.
 const nctLink=v=>{const s=String(v==null?"":v);
   return /^NCT\d{8}$/.test(s)?`<a class="nctl" href="https://clinicaltrials.gov/study/${s}" target="_blank" rel="noopener">${s} ↗</a>`:null;};
+// Any http(s) URL value (evidence pmid/doi links etc.) renders as a subtle
+// external link; display text drops the protocol. Null for non-URL values.
+const urlLink=v=>{const s=String(v==null?"":v);
+  if(!/^https?:\/\/\S+$/.test(s)) return null;
+  return `<a class="nctl" href="${esc(s)}" target="_blank" rel="noopener">${esc(s.replace(/^https?:\/\//,"").slice(0,60))} ↗</a>`;};
 
 // Clickable examples per command.field — clicking a chip fills the input.
 const NCT_EX=["NCT07437157","NCT03004612","NCT02097758","NCT06099158","NCT06573892","NCT06632834"];
@@ -523,13 +528,13 @@ function sideCard(x){return `<div class="rcard compare-side"><h3>${esc(x.name||x
 function factorList(f){if(!Array.isArray(f)||!f.length)return"";
   return `<ul class="li" style="margin-top:.6rem">`+f.map(x=>`<li>${esc(typeof x==="object"?(x.name||x.factor||JSON.stringify(x))+(x.detail?" — "+x.detail:""):x)}</li>`).join("")+`</ul>`;}
 function scalarChips(o){const c=Object.entries(o).filter(([k,v])=>v!=null&&typeof v!=="object")
-    .map(([k,v])=>`<span class="chip">${esc(k)} <b>${nctLink(v)||esc(String(v).slice(0,60))}</b></span>`).join("");
+    .map(([k,v])=>`<span class="chip">${esc(k)} <b>${nctLink(v)||urlLink(v)||esc(String(v).slice(0,60))}</b></span>`).join("");
   return c?`<div class="chips">${c}</div>`:"";}
 function objTable(arr){
   if(!arr.length) return `<p style="color:#888">Empty.</p>`;
-  if(typeof arr[0]!=="object") return `<ul class="li">`+arr.map(x=>`<li>${nctLink(x)||esc(x)}</li>`).join("")+`</ul>`;
+  if(typeof arr[0]!=="object") return `<ul class="li">`+arr.map(x=>`<li>${nctLink(x)||urlLink(x)||esc(x)}</li>`).join("")+`</ul>`;
   const cols=Array.from(new Set(arr.flatMap(o=>Object.keys(o)))).filter(k=>typeof (arr[0][k])!=="object").slice(0,6);
-  const rows=arr.slice(0,25).map(o=>`<tr>${cols.map(c=>`<td>${nctLink(o[c])||esc(String(o[c]==null?"":o[c])).slice(0,80)}</td>`).join("")}</tr>`).join("");
+  const rows=arr.slice(0,25).map(o=>`<tr>${cols.map(c=>`<td>${nctLink(o[c])||urlLink(o[c])||esc(String(o[c]==null?"":o[c])).slice(0,80)}</td>`).join("")}</tr>`).join("");
   return `<table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>
      ${arr.length>25?`<p style="color:#888;font-size:.8rem">…and ${arr.length-25} more</p>`:""}`;
 }
