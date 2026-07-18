@@ -132,6 +132,123 @@ func TestRelevanceGateMatchesTitleAndInterventions(t *testing.T) {
 	}
 }
 
+// ---- phase_distribution normalization ----------------------------------------
+
+// trialWithPhases builds a minimal trial row with the given phases (nil = the
+// phases field is absent entirely, as in the live records that triggered the
+// bug).
+func trialWithPhases(id string, phases []string) string {
+	if phases == nil {
+		return `{"id":"` + id + `","title":"t","status":"RECRUITING"}`
+	}
+	enc, _ := json.Marshal(phases)
+	return `{"id":"` + id + `","title":"t","status":"RECRUITING","phases":` + string(enc) + `}`
+}
+
+func phaseDist(t *testing.T, raw []byte) (entries []rankedEntry, sum int) {
+	t.Helper()
+	var out struct {
+		PhaseDistribution []rankedEntry `json:"phase_distribution"`
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatalf("normalized output is not valid JSON: %v", err)
+	}
+	for _, e := range out.PhaseDistribution {
+		sum += e.Count
+	}
+	return out.PhaseDistribution, sum
+}
+
+// TestPhaseDistributionSumEqualsReturned reproduces the live bug: recruiting
+// "heart disease" returned 10 trials but the CLI distribution summed to 5
+// because 5 trials had no phases at all. After normalization the counts must
+// sum to exactly the returned trial count, with the phaseless trials in an
+// explicit "Not specified" bucket.
+func TestPhaseDistributionSumEqualsReturned(t *testing.T) {
+	trials := []string{
+		trialWithPhases("NCT07476703", nil),
+		trialWithPhases("NCT05719545", nil),
+		trialWithPhases("NCT06434012", nil),
+		trialWithPhases("NCT07154186", nil),
+		trialWithPhases("NCT05180942", nil),
+		trialWithPhases("NCT00000001", []string{"NA"}),
+		trialWithPhases("NCT00000002", []string{"NA"}),
+		trialWithPhases("NCT00000003", []string{"NA"}),
+		trialWithPhases("NCT00000004", []string{"NA"}),
+		trialWithPhases("NCT00000005", []string{"PHASE4"}),
+	}
+	raw := []byte(`{"query":"heart disease","total_matching":4004,"returned":10,` +
+		`"phase_distribution":[{"label":"N/A","count":4},{"label":"Phase 4","count":1}],` +
+		`"trials":[` + strings.Join(trials, ",") + `]}`)
+	if !json.Valid(raw) {
+		t.Fatal("fixture invalid")
+	}
+	entries, sum := phaseDist(t, normalizePhaseDistribution(raw))
+	if sum != 10 {
+		t.Errorf("phase_distribution sums to %d, want 10 (== returned)", sum)
+	}
+	want := map[string]int{"Not specified": 5, "N/A": 4, "Phase 4": 1}
+	for _, e := range entries {
+		if want[e.Label] != e.Count {
+			t.Errorf("label %q count = %d, want %d", e.Label, e.Count, want[e.Label])
+		}
+		delete(want, e.Label)
+	}
+	for l := range want {
+		t.Errorf("label %q missing from normalized distribution", l)
+	}
+}
+
+func TestPhaseDistributionMultiPhaseCountsOnce(t *testing.T) {
+	raw := []byte(`{"returned":2,"phase_distribution":[{"label":"Phase 1","count":1},{"label":"Phase 2","count":1},{"label":"Phase 3","count":1}],` +
+		`"trials":[` + trialWithPhases("NCT00000001", []string{"PHASE1", "PHASE2"}) + `,` +
+		trialWithPhases("NCT00000002", []string{"PHASE3"}) + `]}`)
+	entries, sum := phaseDist(t, normalizePhaseDistribution(raw))
+	if sum != 2 {
+		t.Errorf("sum = %d, want 2 (multi-phase trial must count once)", sum)
+	}
+	found := false
+	for _, e := range entries {
+		if e.Label == "Phase 1/Phase 2" && e.Count == 1 {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("want joined label \"Phase 1/Phase 2\", got %+v", entries)
+	}
+}
+
+func TestPhaseDistributionNestedCompare(t *testing.T) {
+	side := `{"name":"aspirin","phase_distribution":[{"label":"N/A","count":1}],` +
+		`"trials":[` + trialWithPhases("NCT00000001", nil) + `,` + trialWithPhases("NCT00000002", []string{"PHASE2"}) + `]}`
+	raw := []byte(`{"drug_a":` + side + `,"drug_b":` + side + `}`)
+	var out struct {
+		DrugA json.RawMessage `json:"drug_a"`
+	}
+	if err := json.Unmarshal(normalizePhaseDistribution(raw), &out); err != nil {
+		t.Fatal(err)
+	}
+	_, sum := phaseDist(t, out.DrugA)
+	if sum != 2 {
+		t.Errorf("nested drug_a distribution sums to %d, want 2", sum)
+	}
+}
+
+func TestPhaseDistributionPassthrough(t *testing.T) {
+	for _, raw := range [][]byte{
+		[]byte(`not json`),
+		[]byte(`[1,2]`),
+		[]byte(`{"returned":3,"trials":[{"id":"x"}]}`),                     // no phase_distribution
+		[]byte(`{"phase_distribution":[{"label":"N/A","count":1}]}`),      // no trial list
+		[]byte(`{"phase_distribution":"oops","trials":"also-oops"}`),      // wrong shapes
+		[]byte(`{"score":0.4,"level":"medium","factors":[{"name":"x"}]}`), // risk shape
+	} {
+		if got := normalizePhaseDistribution(raw); !bytes.Equal(got, raw) {
+			t.Errorf("input %q must pass through byte-identical, got %q", raw, got)
+		}
+	}
+}
+
 func TestContentTokens(t *testing.T) {
 	got := contentTokens("Type 2 Diabetes, with the insulin!")
 	want := []string{"type", "diabetes", "insulin"}

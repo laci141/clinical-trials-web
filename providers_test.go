@@ -222,6 +222,102 @@ func TestParseSynthesis(t *testing.T) {
 	}
 }
 
+// ---- synthesis post-validation (anti-hallucination) --------------------------
+
+// groundingSource mimics the live recruiting output that produced the "Við
+// Norway" hallucination: Israel is present, Norway is not; enrollment 10 and
+// the 10-of-4004 counts are real numbers.
+var groundingSource = []byte(`{"query":"heart disease","total_matching":4004,"returned":10,` +
+	`"trials":[{"id":"NCT06115980","title":"Xtrac O.S. Study","countries":["Israel"],"enrollment":10},` +
+	`{"id":"NCT07476703","title":"Heart Study","countries":["United States","China","Egypt"],"enrollment":120}]}`)
+
+func groundedSyn(summary string, keyPoints, caveats []string) *llmSynthesis {
+	return &llmSynthesis{Summary: summary, KeyPoints: keyPoints, Caveats: caveats, NotAdvice: defaultNotAdvice}
+}
+
+func TestGroundSynthesisDropsHallucinatedCountry(t *testing.T) {
+	// The live failure verbatim: a caveat citing a nonexistent Norwegian trial.
+	syn := groundedSyn("Ten trials are recruiting.",
+		[]string{"NCT06115980 enrolls 10 participants."},
+		[]string{"Many studies have small sample sizes (e.g., Við Norway enrolling 10 participants)."})
+	groundSynthesis(syn, groundingSource)
+	if len(syn.Caveats) != 0 {
+		t.Errorf("hallucinated-country caveat must be dropped, got %v", syn.Caveats)
+	}
+	if len(syn.KeyPoints) != 1 {
+		t.Errorf("grounded key point must be kept, got %v", syn.KeyPoints)
+	}
+	if syn.GroundingNote == "" || !strings.Contains(syn.GroundingNote, "Norway") {
+		t.Errorf("grounding note must name the unverified token, got %q", syn.GroundingNote)
+	}
+}
+
+func TestGroundSynthesisDropsUnknownNCTAndNumber(t *testing.T) {
+	syn := groundedSyn("Ten trials are recruiting.",
+		[]string{"NCT99999999 is the largest trial.", "One trial enrolls 98765 patients."},
+		nil)
+	groundSynthesis(syn, groundingSource)
+	if len(syn.KeyPoints) != 0 {
+		t.Errorf("unknown NCT / number key points must be dropped, got %v", syn.KeyPoints)
+	}
+	for _, tok := range []string{"NCT99999999", "98765"} {
+		if !strings.Contains(syn.GroundingNote, tok) {
+			t.Errorf("grounding note missing token %q: %q", tok, syn.GroundingNote)
+		}
+	}
+}
+
+func TestGroundSynthesisKeepsGroundedClaims(t *testing.T) {
+	syn := groundedSyn("Showing 10 of 4,004 matching trials; sites include Israel and the United States.",
+		[]string{"NCT07476703 (China, Egypt) enrolls 120 participants.", "About 50% lack phase data."},
+		[]string{"Registry-only signal."})
+	groundSynthesis(syn, groundingSource)
+	if len(syn.KeyPoints) != 2 || len(syn.Caveats) != 1 {
+		t.Errorf("grounded content must survive: key_points=%v caveats=%v", syn.KeyPoints, syn.Caveats)
+	}
+	if syn.GroundingNote != "" {
+		t.Errorf("fully grounded synthesis must carry no note, got %q", syn.GroundingNote)
+	}
+}
+
+func TestGroundSynthesisFlagsSummaryWithoutDroppingIt(t *testing.T) {
+	syn := groundedSyn("The U.S., China, and Norway lead the activity.", nil, nil)
+	groundSynthesis(syn, groundingSource)
+	if syn.Summary == "" {
+		t.Error("summary must be kept (flagged, not dropped)")
+	}
+	if !strings.Contains(syn.GroundingNote, "summary") || !strings.Contains(syn.GroundingNote, "Norway") {
+		t.Errorf("summary with ungrounded reference must be flagged, note = %q", syn.GroundingNote)
+	}
+}
+
+// ---- LLM trial-field whitelist -----------------------------------------------
+
+func TestCompactStripsNoiseFieldsFromTrials(t *testing.T) {
+	raw := []byte(`{"returned":1,"trials":[{"id":"NCT01234567","title":"T","status":"RECRUITING",` +
+		`"sponsor_class":"INDUSTRY","last_update":"2026-01-01","source":"clinicaltrials.gov","enrollment":50}]}`)
+	got := decode(t, compactForLLM(raw))
+	var list []map[string]json.RawMessage
+	if err := json.Unmarshal(got["trials"], &list); err != nil {
+		t.Fatal(err)
+	}
+	for _, noisy := range []string{"sponsor_class", "last_update", "source"} {
+		if _, ok := list[0][noisy]; ok {
+			t.Errorf("noise field %q must be stripped from the LLM copy", noisy)
+		}
+	}
+	for _, keep := range []string{"id", "title", "status", "enrollment"} {
+		if _, ok := list[0][keep]; !ok {
+			t.Errorf("signal field %q must survive compaction", keep)
+		}
+	}
+	// The client copy (input bytes) is untouched by design — compactForLLM
+	// returns a new slice; the caller still holds the original.
+	if !strings.Contains(string(raw), "sponsor_class") {
+		t.Error("input mutated")
+	}
+}
+
 func TestSanitizeLLMErrorRedactsKey(t *testing.T) {
 	key := "sk-super-secret-key-123"
 	out := sanitizeLLMError("provider said: invalid key "+key+"\nline2\x07", key)

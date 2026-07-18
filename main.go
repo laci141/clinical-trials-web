@@ -390,6 +390,10 @@ func runCLI(w http.ResponseWriter, r *http.Request, b byok, group, cmd string, i
 		if group == "search-discovery" && relevanceGatedCmds[cmd] && len(inputs) > 0 {
 			result = relevanceGate(result, inputs[0])
 		}
+		// Rebuild phase_distribution so its counts always sum to the number of
+		// trials returned (the CLI skips phaseless trials and double-counts
+		// multi-phase ones). Pass-through when the shape doesn't apply.
+		result = normalizePhaseDistribution(result)
 	} else {
 		// Some commands (version, help) print plain text; wrap it so the
 		// response stays valid JSON instead of erroring.
@@ -566,6 +570,149 @@ func relevanceGate(raw []byte, query string) []byte {
 		return raw
 	}
 	return out
+}
+
+// ---- aggregate normalization (phase_distribution) ------------------------------
+//
+// The CLI's buildTrialListView (cli-src/internal/cli/recruiting.go) counts one
+// distribution entry PER PHASE VALUE: a trial whose registry record has no
+// phases contributes nothing, and a Phase 1/Phase 2 trial is counted twice.
+// Observed live: recruiting "heart disease" returned 10 trials but the
+// phase_distribution summed to 5 — the 5 phaseless trials silently vanished
+// from the breakdown. The vendored CLI is generated code, so the fix lives
+// here: whenever a result carries BOTH a phase_distribution and a trial list,
+// the distribution is rebuilt one-label-per-trial ("Not specified" when the
+// trial has no phases; multi-phase trials get a joined "Phase 1/Phase 2"
+// label), which makes the counts sum to exactly the number of trials shown.
+
+// webPhaseLabel mirrors the CLI's phaseLabel mapping (cli-src intel.go) so the
+// rebuilt labels match what the CLI would print for a present phase.
+func webPhaseLabel(phase string) string {
+	switch phase {
+	case "EARLY_PHASE1":
+		return "Early Phase 1"
+	case "PHASE1":
+		return "Phase 1"
+	case "PHASE2":
+		return "Phase 2"
+	case "PHASE3":
+		return "Phase 3"
+	case "PHASE4":
+		return "Phase 4"
+	case "NA", "":
+		return "N/A"
+	default:
+		return phase
+	}
+}
+
+// notSpecifiedLabel is the bucket for trials whose registry record carries no
+// phase information at all (distinct from an explicit "NA" phase).
+const notSpecifiedLabel = "Not specified"
+
+// rankedEntry matches the CLI's {label,count} distribution entry shape.
+type rankedEntry struct {
+	Label string `json:"label"`
+	Count int    `json:"count"`
+}
+
+// trialListKeys are the result keys that may hold the trial list a
+// phase_distribution was computed from.
+var trialListKeys = []string{"trials", "results"}
+
+// normalizePhaseDistribution rebuilds obj.phase_distribution from the trial
+// list (top level and compare's drug_a/drug_b sub-objects). On ANY doubt —
+// no phase_distribution key, no trial list, unparseable JSON — the input is
+// returned unchanged, and when nothing changes the bytes pass through
+// untouched.
+func normalizePhaseDistribution(raw []byte) []byte {
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &obj); err != nil {
+		return raw
+	}
+	changed := normalizePhaseObject(obj)
+	for _, k := range []string{"drug_a", "drug_b"} {
+		sub, ok := obj[k]
+		if !ok {
+			continue
+		}
+		var subObj map[string]json.RawMessage
+		if err := json.Unmarshal(sub, &subObj); err != nil {
+			continue
+		}
+		if normalizePhaseObject(subObj) {
+			if enc, err := json.Marshal(subObj); err == nil {
+				obj[k] = enc
+				changed = true
+			}
+		}
+	}
+	if !changed {
+		return raw
+	}
+	out, err := json.Marshal(obj)
+	if err != nil {
+		return raw
+	}
+	return out
+}
+
+// normalizePhaseObject rebuilds phase_distribution inside one object in place.
+// Returns true when the distribution was replaced.
+func normalizePhaseObject(obj map[string]json.RawMessage) bool {
+	if _, ok := obj["phase_distribution"]; !ok {
+		return false
+	}
+	var list []struct {
+		Phases []string `json:"phases"`
+	}
+	found := false
+	for _, k := range trialListKeys {
+		rawList, ok := obj[k]
+		if !ok {
+			continue
+		}
+		if err := json.Unmarshal(rawList, &list); err == nil {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return false
+	}
+	counts := map[string]int{}
+	order := make([]string, 0, 8)
+	for _, t := range list {
+		label := notSpecifiedLabel
+		if len(t.Phases) > 0 {
+			labels := make([]string, 0, len(t.Phases))
+			for _, p := range t.Phases {
+				labels = append(labels, webPhaseLabel(p))
+			}
+			label = strings.Join(labels, "/")
+		}
+		if counts[label] == 0 {
+			order = append(order, label)
+		}
+		counts[label]++
+	}
+	entries := make([]rankedEntry, 0, len(order))
+	for _, l := range order {
+		entries = append(entries, rankedEntry{Label: l, Count: counts[l]})
+	}
+	// stable insertion sort by count desc (ties keep first-seen order); the
+	// list is tiny and main.go deliberately avoids importing sort.
+	for i := 1; i < len(entries); i++ {
+		for j := i; j > 0 && entries[j-1].Count < entries[j].Count; j-- {
+			entries[j-1], entries[j] = entries[j], entries[j-1]
+		}
+	}
+	enc, err := json.Marshal(entries)
+	if err != nil {
+		return false
+	}
+	obj["phase_distribution"] = enc
+	return true
 }
 
 // buildChildEnv returns the environment for the child CLI process: the

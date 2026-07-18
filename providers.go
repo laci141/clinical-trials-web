@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -97,6 +98,10 @@ type llmSynthesis struct {
 	Caveats   []string `json:"caveats"`
 	NotAdvice string   `json:"not_advice"`
 	Model     string   `json:"model"`
+	// GroundingNote is set by groundSynthesis when post-validation removed or
+	// flagged statements that referenced data absent from the tool output. It
+	// is rendered as a visible warning in the UI.
+	GroundingNote string `json:"grounding_note,omitempty"`
 }
 
 // defaultNotAdvice is enforced when the model omits or blanks the field: the
@@ -120,6 +125,24 @@ const maxEntriesForLLM = 25
 // kept whole.)
 var largeArrayKeys = []string{"results", "trials", "sources"}
 
+// trialFieldKeys are the array keys whose entries are trial rows and therefore
+// get the noise-reduction field whitelist below (sources entries are already
+// tiny and stay whole).
+var trialFieldKeys = map[string]bool{"results": true, "trials": true}
+
+// llmTrialFields is the whitelist of trial-row fields the LLM sees. Everything
+// else (sponsor_class, last_update, source, secondary_ids, relevance scores …)
+// is registry bookkeeping: noise that invites hallucination without adding
+// summarizable signal. Only the LLM's copy is filtered — the client always
+// receives the full row.
+var llmTrialFields = map[string]bool{
+	"id": true, "nct_id": true, "title": true, "status": true,
+	"phase": true, "phases": true, "conditions": true, "interventions": true,
+	"countries": true, "sponsor": true, "enrollment": true,
+	"start_date": true, "completion_date": true, "primary_completion_date": true,
+	"has_results": true, "why_stopped": true, "url": true,
+}
+
 // compactForLLM shrinks the CLI JSON before it is embedded in the prompt.
 // Wherever the top-level object (or the drug_a/drug_b sub-objects of compare
 // output) carries a results/trials/sources array longer than maxEntriesForLLM,
@@ -142,8 +165,11 @@ func compactForLLM(raw []byte) []byte {
 	return out
 }
 
-// compactObject applies the large-array trim to one object and recurses into
-// compare's drug_a/drug_b sub-objects. Returns true when anything changed.
+// compactObject applies the large-array trim plus the trial-field whitelist to
+// one object and recurses into compare's drug_a/drug_b sub-objects. Returns
+// true when anything changed. Entries that already contain only whitelisted
+// fields are kept byte-identical (no re-marshal), so outputs with nothing to
+// strip still pass through unchanged.
 func compactObject(obj map[string]json.RawMessage) bool {
 	changed := false
 	for _, k := range largeArrayKeys {
@@ -155,9 +181,22 @@ func compactObject(obj map[string]json.RawMessage) bool {
 		if err := json.Unmarshal(rawList, &list); err != nil {
 			continue
 		}
+		listChanged := false
 		if len(list) > maxEntriesForLLM {
-			if trimmed, err := json.Marshal(list[:maxEntriesForLLM]); err == nil {
-				obj[k] = trimmed
+			list = list[:maxEntriesForLLM]
+			listChanged = true
+		}
+		if trialFieldKeys[k] {
+			for i, entry := range list {
+				if slim, ok := stripTrialEntry(entry); ok {
+					list[i] = slim
+					listChanged = true
+				}
+			}
+		}
+		if listChanged {
+			if enc, err := json.Marshal(list); err == nil {
+				obj[k] = enc
 				changed = true
 			}
 		}
@@ -179,6 +218,31 @@ func compactObject(obj map[string]json.RawMessage) bool {
 		}
 	}
 	return changed
+}
+
+// stripTrialEntry removes non-whitelisted fields from one trial row. Returns
+// the slimmed entry and true only when something was actually removed; a row
+// that is already clean is left byte-identical.
+func stripTrialEntry(entry json.RawMessage) (json.RawMessage, bool) {
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(entry, &m); err != nil {
+		return entry, false
+	}
+	dropped := false
+	for k := range m {
+		if !llmTrialFields[k] {
+			delete(m, k)
+			dropped = true
+		}
+	}
+	if !dropped {
+		return entry, false
+	}
+	enc, err := json.Marshal(m)
+	if err != nil {
+		return entry, false
+	}
+	return enc, true
 }
 
 // synthesisPrompt builds the single user message sent to the LLM. It is
@@ -205,7 +269,13 @@ func synthesisPrompt(command string, inputs []string, cliJSON []byte) string {
 	}
 	b.WriteString("\n\nWrite a plain-language synthesis of this tool output for a general reader.\n" +
 		"IMPORTANT — this synthesis is INFORMATIONAL ONLY and is NOT medical or clinical advice. Never tell the user what treatment to take, never recommend starting, stopping, or switching any medication, and never advise enrolling in (or avoiding) any specific trial. Describe what the data shows; do not prescribe.\n" +
-		"Ground every statement in the tool output above: cite concrete numbers, trial counts, phases, enrollment figures, dates, and NCT IDs from it. Do not invent data. If the output is empty or too thin to summarize, say so plainly in the summary and note it in caveats.\n\n" +
+		"STRICT GROUNDING RULES — every one is mandatory:\n" +
+		"1. Use ONLY facts present in the tool output above. For this task, nothing outside it exists.\n" +
+		"2. Back every trial-level claim with its NCT ID in the same sentence, exactly as it appears in the tool output.\n" +
+		"3. NEVER mention a country, sponsor, enrollment figure, or trial that does not appear verbatim in the tool output. Copy names and numbers character-for-character; do not paraphrase identifiers.\n" +
+		"4. Do not rank or generalize (\"X leads\", \"most trials are…\") unless the counts in the tool output directly show it.\n" +
+		"5. If the output is empty or too thin to summarize, say exactly that in the summary and caveats — never fill gaps with plausible-sounding facts.\n" +
+		"Your response is post-validated by software: statements referencing NCT IDs, countries, or numbers absent from the tool output are removed.\n\n" +
 		"Respond with ONLY a JSON object, no markdown fences, with exactly these fields:\n" +
 		`{"summary":"2-4 plain-language sentences","key_points":["3-5 points citing concrete numbers/IDs from the tool output"],"caveats":["limitations, e.g. early phase, small N, registry-only signal"],"not_advice":"informational only, not medical advice"}`)
 	return b.String()
@@ -307,7 +377,186 @@ func llmSynthesize(ctx context.Context, provider, key, model, command string, in
 		return nil, errors.New("unparseable synthesis: " + sanitizeLLMError(err.Error(), key))
 	}
 	syn.Model = model
+	// Post-validation against the FULL CLI JSON (pre-compaction): statements
+	// referencing NCT IDs, countries, or numbers absent from the source are
+	// removed or flagged. Observed live failure this guards against: a caveat
+	// citing a nonexistent "Við Norway" trial for a dataset with no Norway.
+	groundSynthesis(syn, cliJSON)
 	return syn, nil
+}
+
+// ---- synthesis post-validation (anti-hallucination) --------------------------
+
+var (
+	groundNCTRe = regexp.MustCompile(`NCT\d{8}`)
+	groundNumRe = regexp.MustCompile(`\d[\d,]*%?`)
+	srcNumRe    = regexp.MustCompile(`\d+`)
+)
+
+// countrySourceForms maps a canonical country to the spellings that count as
+// evidence when found in the source JSON (CT.gov location names plus common
+// variants).
+var countrySourceForms = map[string][]string{
+	"United States":  {"United States", "USA", "U.S."},
+	"United Kingdom": {"United Kingdom", "UK", "England", "Scotland", "Wales", "Northern Ireland"},
+	"South Korea":    {"Korea"},
+	"Czechia":        {"Czechia", "Czech Republic"},
+	"Türkiye":        {"Türkiye", "Turkey"},
+}
+
+// countryNames is the detection lexicon: names an LLM plausibly writes in a
+// synthesis. Detection is word-boundary and case-sensitive (country names are
+// capitalized in prose), which keeps common words like "china cabinet" from
+// false-matching in lowercase text.
+var countryNames = []string{
+	"United States", "U.S.A.", "U.S.", "USA", "America",
+	"United Kingdom", "U.K.", "Britain", "England", "Scotland", "Wales",
+	"China", "Japan", "South Korea", "Korea", "India", "Pakistan", "Bangladesh",
+	"Indonesia", "Malaysia", "Singapore", "Thailand", "Vietnam", "Philippines",
+	"Taiwan", "Hong Kong", "Israel", "Iran", "Iraq", "Saudi Arabia", "Qatar",
+	"United Arab Emirates", "Egypt", "Nigeria", "Kenya", "Ethiopia", "Ghana",
+	"South Africa", "Morocco", "Tunisia", "Algeria", "Uganda", "Tanzania",
+	"France", "Germany", "Italy", "Spain", "Portugal", "Netherlands", "Belgium",
+	"Switzerland", "Austria", "Sweden", "Norway", "Denmark", "Finland", "Iceland",
+	"Ireland", "Poland", "Czechia", "Czech Republic", "Slovakia", "Hungary",
+	"Romania", "Bulgaria", "Greece", "Croatia", "Serbia", "Slovenia", "Ukraine",
+	"Russia", "Belarus", "Estonia", "Latvia", "Lithuania", "Türkiye", "Turkey",
+	"Canada", "Mexico", "Brazil", "Argentina", "Chile", "Colombia", "Peru",
+	"Venezuela", "Ecuador", "Uruguay", "Cuba", "Australia", "New Zealand",
+}
+
+// countryDetectRe matches any lexicon name on word boundaries. Longer names
+// are listed before their substrings (e.g. "South Korea" before "Korea") so
+// the longest form wins.
+var countryDetectRe = func() *regexp.Regexp {
+	quoted := make([]string, 0, len(countryNames))
+	for _, n := range countryNames {
+		quoted = append(quoted, regexp.QuoteMeta(n))
+	}
+	return regexp.MustCompile(`(^|[^A-Za-z])(` + strings.Join(quoted, "|") + `)($|[^A-Za-z])`)
+}()
+
+// countryEvidenceForms returns the spellings that count as source evidence for
+// a country name detected in synthesis text.
+func countryEvidenceForms(name string) []string {
+	switch name {
+	case "U.S.", "U.S.A.", "USA", "America":
+		name = "United States"
+	case "U.K.", "Britain":
+		name = "United Kingdom"
+	case "Korea":
+		name = "South Korea"
+	}
+	if forms, ok := countrySourceForms[name]; ok {
+		return forms
+	}
+	return []string{name}
+}
+
+// ungroundedTokens returns every NCT ID, country name, and number in text that
+// has no supporting occurrence in the source JSON. Percentages are exempt
+// (the model may legitimately compute them from grounded counts), as are
+// single-digit numbers (too noisy to police).
+func ungroundedTokens(text, src, srcLower string, srcNums map[string]bool) []string {
+	var probs []string
+	seen := map[string]bool{}
+	flag := func(tok string) {
+		if !seen[tok] {
+			seen[tok] = true
+			probs = append(probs, tok)
+		}
+	}
+	for _, id := range groundNCTRe.FindAllString(text, -1) {
+		if !strings.Contains(src, id) {
+			flag(id)
+		}
+	}
+	for _, m := range countryDetectRe.FindAllStringSubmatch(text, -1) {
+		name := m[2]
+		grounded := false
+		for _, form := range countryEvidenceForms(name) {
+			if strings.Contains(srcLower, strings.ToLower(form)) {
+				grounded = true
+				break
+			}
+		}
+		if !grounded {
+			flag(name)
+		}
+	}
+	for _, m := range groundNumRe.FindAllString(text, -1) {
+		if strings.HasSuffix(m, "%") {
+			continue
+		}
+		n := strings.ReplaceAll(m, ",", "")
+		if len(n) < 2 {
+			continue
+		}
+		if !srcNums[n] {
+			flag(m)
+		}
+	}
+	return probs
+}
+
+// groundSynthesis validates the parsed synthesis against the full CLI JSON:
+// key points and caveats containing ungrounded references are DROPPED; a
+// summary containing them is kept (it is one prose unit) but flagged. Either
+// action sets GroundingNote, which the UI renders as a visible warning, so an
+// unverified claim never appears in a factual tone without one.
+func groundSynthesis(syn *llmSynthesis, source []byte) {
+	src := string(source)
+	srcLower := strings.ToLower(src)
+	srcNums := map[string]bool{}
+	for _, n := range srcNumRe.FindAllString(src, -1) {
+		srcNums[n] = true
+	}
+	var flagged []string
+	dropped := 0
+	keep := func(items []string) []string {
+		out := items[:0]
+		for _, s := range items {
+			if probs := ungroundedTokens(s, src, srcLower, srcNums); len(probs) > 0 {
+				flagged = append(flagged, probs...)
+				dropped++
+				continue
+			}
+			out = append(out, s)
+		}
+		return out
+	}
+	syn.KeyPoints = keep(syn.KeyPoints)
+	syn.Caveats = keep(syn.Caveats)
+	summaryProbs := ungroundedTokens(syn.Summary, src, srcLower, srcNums)
+	flagged = append(flagged, summaryProbs...)
+
+	if dropped == 0 && len(summaryProbs) == 0 {
+		return
+	}
+	uniq := make([]string, 0, len(flagged))
+	seen := map[string]bool{}
+	for _, f := range flagged {
+		if !seen[f] {
+			seen[f] = true
+			uniq = append(uniq, f)
+		}
+	}
+	list := strings.Join(uniq, ", ")
+	if len(list) > 160 {
+		list = list[:160] + "…"
+	}
+	note := "Post-validation: "
+	if dropped > 0 {
+		note += fmt.Sprintf("%d AI statement(s) removed for referencing data not present in the tool output", dropped)
+	}
+	if len(summaryProbs) > 0 {
+		if dropped > 0 {
+			note += "; "
+		}
+		note += "the summary contains unverified references — treat with caution"
+	}
+	note += " (unverified: " + list + ")."
+	syn.GroundingNote = note
 }
 
 // extractChatText pulls the assistant text out of the provider response.

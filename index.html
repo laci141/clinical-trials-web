@@ -134,6 +134,9 @@
     border-radius:.5rem;padding:.5rem .8rem;margin-top:.8rem}
   .llm-error-note{font-size:.85rem;color:#fbbf24;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);
     border-radius:.5rem;padding:.6rem .9rem;margin-bottom:1rem}
+  /* post-validation warning inside the AI panel (removed/flagged statements) */
+  .grounding-note{font-size:.8rem;color:#ffb3b3;background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.3);
+    border-radius:.5rem;padding:.5rem .8rem;margin-bottom:.6rem}
   .model-hint{font-size:.75rem;color:#a6a6a6;margin-top:.3rem}
 
   /* Relevance-filter transparency (PRISMA-style): muted note + closed glass details */
@@ -509,10 +512,11 @@ function renderSynthesis(payload){
   const li=a=>Array.isArray(a)&&a.length?"<ul>"+a.map(x=>`<li>${esc(x)}</li>`).join("")+"</ul>":"";
   html+=`<div class="ai-panel">
     <h3>🤖 AI Synthesis <span class="meta">${esc(payload.llm_source||"")}${s.model?" · "+esc(s.model):""}</span></h3>
+    ${s.grounding_note?`<div class="grounding-note">⚠️ ${esc(s.grounding_note)}</div>`:""}
     <p class="sum">${esc(s.summary)}</p>
     ${li(s.key_points)?`<h4>Key points</h4>${li(s.key_points)}`:""}
     ${Array.isArray(s.caveats)&&s.caveats.length?`<h4>Caveats</h4><ul class="caveats">${s.caveats.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
-    <div class="ai-disclaimer">⚕️ ${esc(s.not_advice||"Informational only — not medical advice.")}</div>
+    <div class="ai-disclaimer">⚕️ AI-generated summary — verify against the registry record. ${esc(s.not_advice||"Informational only — not medical advice.")}</div>
   </div>`;
   return html;
 }
@@ -563,11 +567,22 @@ function factorList(f){if(!Array.isArray(f)||!f.length)return"";
 function scalarChips(o){const c=Object.entries(o).filter(([k,v])=>v!=null&&typeof v!=="object")
     .map(([k,v])=>`<span class="chip">${esc(k)} <b>${nctLink(v)||urlLink(v)||esc(String(v).slice(0,60))}</b></span>`).join("");
   return c?`<div class="chips">${c}</div>`:"";}
+// cellText renders one table-cell value as plain text: missing values become
+// an em dash (never an unexplained blank), scalar arrays join with "; ", and
+// objects are JSON — "[object Object]" and "undefined" must never appear.
+function cellText(v){
+  if(v===null||v===undefined||v==="")return "—";
+  if(Array.isArray(v))return v.map(x=>(typeof x==="object")?JSON.stringify(x):String(x)).join("; ")||"—";
+  if(typeof v==="object")return JSON.stringify(v);
+  return String(v);
+}
 function objTable(arr){
   if(!arr.length) return `<p style="color:#888">Empty.</p>`;
   if(typeof arr[0]!=="object") return `<ul class="li">`+arr.map(x=>`<li>${nctLink(x)||urlLink(x)||esc(x)}</li>`).join("")+`</ul>`;
   const cols=Array.from(new Set(arr.flatMap(o=>Object.keys(o)))).filter(k=>typeof (arr[0][k])!=="object").slice(0,6);
-  const rows=arr.slice(0,25).map(o=>`<tr>${cols.map(c=>`<td>${nctLink(o[c])||urlLink(o[c])||esc(String(o[c]==null?"":o[c])).slice(0,80)}</td>`).join("")}</tr>`).join("");
+  // NOTE: truncate BEFORE esc() — slicing the escaped string could cut an
+  // HTML entity in half (e.g. "&amp;" → "&am") and corrupt the visible text.
+  const rows=arr.slice(0,25).map(o=>`<tr>${cols.map(c=>`<td>${nctLink(o[c])||urlLink(o[c])||esc(cellText(o[c]).slice(0,80))}</td>`).join("")}</tr>`).join("");
   return `<table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>
      ${arr.length>25?`<p style="color:#888;font-size:.8rem">…and ${arr.length-25} more</p>`:""}`;
 }
@@ -646,31 +661,54 @@ function exportRows(key){
 }
 
 // ── CSV (RFC4180). Excel-safe: BOM + CRLF + explicit separator hint. ──
-function toCSV(rows){
+// metaLine (optional) becomes a scope header row under the sep= hint, so the
+// exported file itself records that it holds a subset (e.g. "10 of 4004").
+function toCSV(rows,metaLine){
   const cols=[];
   rows.forEach(r=>Object.keys(r||{}).forEach(k=>{if(!cols.includes(k))cols.push(k);}));
   const cell=v=>{
     // Booleans must be exported as text, otherwise Excel localises them
     // (Hungarian Excel shows IGAZ / HAMIS instead of TRUE / FALSE).
-    if(v===null||v===undefined||v===false)return "";
+    if(v===null||v===undefined)return "";
     if(v===true)return "Yes";
-    let s=(typeof v==="object")?JSON.stringify(v):String(v);
+    if(v===false)return "No";
+    let s=Array.isArray(v)?v.map(x=>(typeof x==="object")?JSON.stringify(x):String(x)).join("; ")
+      :(typeof v==="object")?JSON.stringify(v):String(v);
     if(/[",\r\n]/.test(s)) s='"'+s.replace(/"/g,'""')+'"';
     return s;
   };
-  // The first line tells Excel the delimiter regardless of the user's locale.
-  const lines=["sep=,",cols.map(cell).join(",")];
+  // The first line tells Excel the delimiter regardless of the user's locale;
+  // the second is a human-readable scope header (e.g. "showing 10 of 4004").
+  const lines=["sep=,"];
+  if(metaLine)lines.push(cell(metaLine));
+  lines.push(cols.map(cell).join(","));
   rows.forEach(r=>lines.push(cols.map(c=>cell(r?r[c]:"")).join(",")));
   // UTF-8 BOM so Excel detects the encoding; spelled out because a literal
   // BOM character would be invisible in the source.
   return String.fromCharCode(0xFEFF)+lines.join("\r\n");
 }
 
+// exportMetaLine describes the export scope for the file header row: which
+// command, and that the rows are a subset ("showing 10 of 4004 matching").
+// Deliberately comma-free so it stays one CSV cell even unquoted.
+function exportMetaLine(key){
+  const d=lastData[key];
+  if(!d)return "Trialvera export";
+  const r=(d.response&&typeof d.response.result==="object"&&d.response.result)||{};
+  const cmd=(d.response&&d.response.command)||key;
+  let scope="";
+  if(typeof r.returned==="number"&&typeof r.total_matching==="number")
+    scope=" · showing "+r.returned+" of "+r.total_matching+" matching trials";
+  else if(Array.isArray(d.rows)&&d.rows.length)
+    scope=" · "+d.rows.length+" rows";
+  return "Trialvera export · command: "+cmd+scope+" · source: ClinicalTrials.gov · "+new Date().toISOString().slice(0,10);
+}
+
 function downloadCSV(key,filename){
   if(!lastData[key]){alert("Run a command first.");return;}
   const rows=exportRows(key);
   if(!rows){alert("CSV export is not available for this result — use JSON.");return;}
-  triggerDownload(new Blob([toCSV(rows)],{type:"text/csv;charset=utf-8"}),filename);
+  triggerDownload(new Blob([toCSV(rows,exportMetaLine(key))],{type:"text/csv;charset=utf-8"}),filename);
 }
 
 // ── XLSX: centered numbers, left-aligned long text, styled header ──
@@ -680,10 +718,13 @@ function downloadXLSX(key,filename){
   if(!rows){alert("Excel export is not available for this result — use JSON.");return;}
   const cols=[];
   rows.forEach(r=>Object.keys(r||{}).forEach(k=>{if(!cols.includes(k))cols.push(k);}));
-  const aoa=[cols].concat(rows.map(r=>cols.map(c=>{
+  // Row 0 = scope header ("showing 10 of 4004"), row 1 = column header.
+  const aoa=[[exportMetaLine(key)],cols].concat(rows.map(r=>cols.map(c=>{
     const v=r?r[c]:"";
-    if(v===null||v===undefined||v===false)return "";
+    if(v===null||v===undefined)return "";
     if(v===true)return "Yes";
+    if(v===false)return "No";
+    if(Array.isArray(v))return v.map(x=>(typeof x==="object")?JSON.stringify(x):String(x)).join("; ");
     return (typeof v==="object")?JSON.stringify(v):v;
   })));
   const ws=XLSX.utils.aoa_to_sheet(aoa);
@@ -704,6 +745,10 @@ function downloadXLSX(key,filename){
       const addr=XLSX.utils.encode_cell({r:R,c:C});
       if(!ws[addr])continue;
       if(R===0){
+        // scope header row: muted italic, left-aligned
+        ws[addr].s={font:{italic:true,color:{rgb:"808080"}},
+          alignment:{vertical:"center",horizontal:"left",wrapText:false}};
+      }else if(R===1){
         ws[addr].s={font:{bold:true,color:{rgb:"FFFFFF"}},alignment:centerH,
           fill:{fgColor:{rgb:"4472C4"}},
           border:{bottom:{style:"thin",color:{rgb:"999999"}}}};
@@ -714,7 +759,7 @@ function downloadXLSX(key,filename){
     }
   }
   ws["!cols"]=colInfo.map(ci=>({wch:ci.wch}));
-  ws["!freeze"]={xSplit:0,ySplit:1};
+  ws["!freeze"]={xSplit:0,ySplit:2};
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,"Trialvera");
   XLSX.writeFile(wb,filename);
@@ -846,7 +891,10 @@ document.addEventListener("click",e=>{
   const ind=th.querySelector(".sortind");
   if(ind)ind.textContent=dir==="asc"?"↑":"↓";
   const rows=Array.from(tbody.rows);
-  const val=r=>{const c=r.cells[idx];return c?c.textContent.replace(/[⇅↑↓]/g,"").trim():"";};
+  // "—" is the missing-value marker; treat it as empty so a mostly-numeric
+  // column (e.g. enrollment with gaps) still sorts numerically.
+  const val=r=>{const c=r.cells[idx];if(!c)return "";
+    const t=c.textContent.replace(/[⇅↑↓]/g,"").trim();return t==="—"?"":t;};
   // Numeric only when every non-empty cleaned cell is a pure number — dates
   // like 2026-07-18 fail this test and correctly fall back to text sorting,
   // where YYYY-MM-DD already orders chronologically.
