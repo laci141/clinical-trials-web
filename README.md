@@ -2,7 +2,7 @@
 
 A thin Go web wrapper around the [clinical-trials CLI](https://github.com/mvanhorn/printing-press-library): search, analyze, compare and monitor clinical trials across ClinicalTrials.gov, PubMed, OpenAlex and the FAERS safety database — with optional bring-your-own-key AI synthesis on top.
 
-**Live instance:** [clinical-trials-web-1.onrender.com](https://clinical-trials-web-1.onrender.com)
+**Live instance:** [pubvera-trialvera.onrender.com](https://pubvera-trialvera.onrender.com)
 
 ## Features
 
@@ -78,4 +78,4 @@ Phase 3 multi-model consensus · abstracts for gaps/evidence · Patent CLI · Gr
 
 ## Attribution
 
-Built on the [Printing Press Library](https://github.com/mvanhorn/printing-press-library) CLI. Web layer: [github.com/laci141/clinical-trials-web](https://github.com/laci141/clinical-trials-web).
+Built on the [Printing Press Library](https://github.com/mvanhorn/printing-press-library) CLI. Web layer: [github.com/laci141/pubvera-trialvera](https://github.com/laci141/pubvera-trialvera).

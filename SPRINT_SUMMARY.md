@@ -71,7 +71,7 @@ empty fields that produced instant "required"/"unknown resource" errors.
 
 ## 5. Live validation (Render, manual)
 
-[clinical-trials-web-1.onrender.com](https://clinical-trials-web-1.onrender.com):
+[pubvera-trialvera.onrender.com](https://pubvera-trialvera.onrender.com):
 search *diabetes* → 87 off-topic filtered, clean synthesis, 🚫 panel transparent;
 recruiting *heart disease* → 3,997 matches, top 10 synthesized; compare aspirin/ibuprofen →
 readable side-by-side with trial counts/phases/top sponsors; risk/forecast/timeline correct
